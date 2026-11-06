@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force AWS redeploy without a new release'
+        required: false
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -22,3 +28,51 @@ jobs:
         id: release
         with:
           token: ${{ secrets.RELEASE_PLEASE_PAT || secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy to AWS
+    needs: release-please
+    if: ${{ (needs.release-please.outputs.release_created == 'true' || inputs.force_deploy == true) && secrets.AWS_ROLE_TO_ASSUME != '' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.DOMAIN_NAME }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || github.ref }}
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Deploy AWS CDK Stack
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+        run: |
+          npx cdk deploy --require-approval never \
+            -c domainName="${{ vars.DOMAIN_NAME }}" \
+            -c existingBucketName="${{ vars.EXISTING_BUCKET_NAME }}" \
+            -c certificateArn="${{ vars.CERTIFICATE_ARN }}" \
+            -c adminUser="${{ vars.ADMIN_USER || 'admin' }}" \
+            -c adminEmail="${{ vars.ADMIN_EMAIL || 'admin@example.com' }}"
