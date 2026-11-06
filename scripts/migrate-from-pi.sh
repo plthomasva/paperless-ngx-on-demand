@@ -25,7 +25,7 @@ echo "Pi Paperless directory: $PI_PAPERLESS_DIR"
 echo "Target S3 Inbox bucket: $S3_INBOX_BUCKET"
 
 if [[ ! -d "$DATA_DIR" ]]; then
-  echo "Error: Directory $DATA_DIR does not exist."
+  echo "Error: Directory $DATA_DIR does not exist." >&2
   exit 1
 fi
 

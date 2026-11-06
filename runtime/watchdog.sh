@@ -117,12 +117,9 @@ is_system_busy() {
   fi
 
   # 6. Check running OCR / Celery worker subprocesses
-  if pgrep -f "(tesseract|ocrmypdf|gs|celery.*worker)" >/dev/null 2>&1; then
-    # Check if any OCR subprocess is actively executing (State R or D)
-    if ps -eo stat,comm | grep -E "^[RD].*(tesseract|ocrmypdf|gs)" >/dev/null 2>&1; then
-      log "Busy: OCR or document converter subprocess actively computing."
-      return 0
-    fi
+  if pgrep -f "(tesseract|ocrmypdf|gs|celery.*worker)" >/dev/null 2>&1 && ps -eo stat,comm | grep -E "^[RD].*(tesseract|ocrmypdf|gs)" >/dev/null 2>&1; then
+    log "Busy: OCR or document converter subprocess actively computing."
+    return 0
   fi
 
   return 1 # Not busy
@@ -138,9 +135,7 @@ while true; do
   ui_idle_seconds=$(( now - last_activity ))
 
   if [[ "$ui_idle_seconds" -lt "$IDLE_TIMEOUT_SECONDS" ]]; then
-    if [[ "$idle_passes" -gt 0 ]]; then
-      log "UI active ($ui_idle_seconds < $IDLE_TIMEOUT_SECONDS s). Resetting idle counter."
-    fi
+    [[ "$idle_passes" -gt 0 ]] && log "UI active ($ui_idle_seconds < $IDLE_TIMEOUT_SECONDS s). Resetting idle counter."
     idle_passes=0
     continue
   fi

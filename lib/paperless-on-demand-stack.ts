@@ -114,6 +114,7 @@ export class PaperlessOnDemandStack extends Stack {
         encryption: BucketEncryption.S3_MANAGED,
         blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
         versioned: true,
+        enforceSSL: true,
         lifecycleRules: [
           {
             id: 'ExpireOldBackups',

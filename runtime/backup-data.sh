@@ -20,7 +20,7 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 TIMESTAMP=$(date -u +"%Y%m%d_%H%M%SZ")
 
 if [[ -z "$INBOX_BUCKET" ]]; then
-  echo "[backup] Error: INBOX_BUCKET environment variable is required."
+  echo "[backup] Error: INBOX_BUCKET environment variable is required." >&2
   exit 1
 fi
 

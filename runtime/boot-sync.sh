@@ -35,7 +35,7 @@ fi
 
 # 1. Create required directories
 mkdir -p /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless /var/cache/s3fs
-chmod 777 /tmp/paperless
+chmod 775 /tmp/paperless
 chown -R 1000:1000 /mnt/data /mnt/consume /mnt/export /tmp/paperless
 
 # 2. Restore SQLite and search index from S3 if /mnt/data is empty

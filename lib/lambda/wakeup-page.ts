@@ -9,8 +9,8 @@ export function renderWakeupPage(requestedPath: string): string {
       ? requestedPath
       : '/'
   )
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e');
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e');
 
   return `<!DOCTYPE html>
 <html lang="en">
