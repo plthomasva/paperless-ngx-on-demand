@@ -32,7 +32,7 @@ jobs:
   deploy:
     name: Deploy to AWS
     needs: release-please
-    if: ${{ (needs.release-please.outputs.release_created == 'true' || inputs.force_deploy == true) && secrets.AWS_ROLE_TO_ASSUME != '' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event.inputs.force_deploy == true }}
     runs-on: ubuntu-latest
     environment:
       name: production
