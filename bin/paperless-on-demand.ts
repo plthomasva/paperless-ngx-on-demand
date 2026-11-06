@@ -9,6 +9,7 @@ const existingBucketName =
   app.node.tryGetContext('existingMediaBucketName');
 const mediaSubpath = app.node.tryGetContext('mediaSubpath') || 'media';
 const domainName = app.node.tryGetContext('domainName');
+const certificateArn = app.node.tryGetContext('certificateArn');
 const adminUser = app.node.tryGetContext('adminUser') || 'admin';
 const adminEmail = app.node.tryGetContext('adminEmail') || 'admin@example.com';
 const cloudfrontPrefixListId = app.node.tryGetContext('cloudfrontPrefixListId');
@@ -17,6 +18,7 @@ new PaperlessOnDemandStack(app, 'PaperlessOnDemandStack', {
   existingBucketName,
   mediaSubpath,
   domainName,
+  certificateArn,
   adminUser,
   adminEmail,
   cloudfrontPrefixListId,

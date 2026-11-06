@@ -27,9 +27,15 @@ export interface PaperlessOnDemandStackProps extends StackProps {
   readonly mediaSubpath?: string;
 
   /**
-   * Optional custom domain or hostname for Paperless-NGX.
+   * Optional custom domain or hostname for Paperless-NGX (e.g. pod.painless-computing.com).
    */
   readonly domainName?: string;
+
+  /**
+   * Optional existing ACM Certificate ARN in us-east-1 for the custom domain.
+   * If omitted but domainName is set, CDK will provision a new ACM certificate with DNS validation.
+   */
+  readonly certificateArn?: string;
 
   /**
    * Admin username for initial Paperless-NGX setup.
@@ -142,12 +148,23 @@ export class PaperlessOnDemandStack extends Stack {
       wakeupFunctionUrl: this.orchestrator.functionUrl,
       originVerifySecret,
       keyValueStore: routingKvs,
+      domainName: props.domainName,
+      certificateArn: props.certificateArn,
     });
 
     // Stack Outputs
+    const publicUrl = props.domainName
+      ? `https://${props.domainName}`
+      : `https://${this.edgeRouter.distribution.distributionDomainName}`;
+
+    new CfnOutput(this, 'PaperlessUrl', {
+      value: publicUrl,
+      description: 'Public URL for Paperless-NGX (Point your browser here)',
+    });
+
     new CfnOutput(this, 'CloudFrontUrl', {
       value: `https://${this.edgeRouter.distribution.distributionDomainName}`,
-      description: 'Public URL for Paperless-NGX (Point your browser here)',
+      description: 'CloudFront distribution default domain',
     });
 
     new CfnOutput(this, 'S3InboxBucket', {

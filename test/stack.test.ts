@@ -102,6 +102,7 @@ describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
     env: { account: '123456789012', region: 'us-east-1' },
     existingBucketName: 'paperless-ngx-storage-1749863935',
     mediaSubpath: 'media',
+    domainName: 'pod.painless-computing.com',
   });
   const template = Template.fromStack(stack);
 
@@ -111,5 +112,18 @@ describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
 
   it('attaches S3 ObjectCreated event notification on the existing bucket under consume/', () => {
     template.resourceCountIs('Custom::S3BucketNotifications', 1);
+  });
+
+  it('provisions ACM certificate and attaches custom domain alias to CloudFront', () => {
+    template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
+    template.hasResourceProperties('AWS::CertificateManager::Certificate', {
+      DomainName: 'pod.painless-computing.com',
+      ValidationMethod: 'DNS',
+    });
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        Aliases: ['pod.painless-computing.com'],
+      }),
+    });
   });
 });

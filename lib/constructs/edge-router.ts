@@ -14,11 +14,14 @@ import {
 import { HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Fn } from 'aws-cdk-lib';
 import { FunctionUrl } from 'aws-cdk-lib/aws-lambda';
+import { Certificate, CertificateValidation, ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
 
 export interface EdgeRouterProps {
   readonly wakeupFunctionUrl: FunctionUrl;
   readonly originVerifySecret: string;
   readonly keyValueStore: KeyValueStore;
+  readonly domainName?: string;
+  readonly certificateArn?: string;
 }
 
 export class EdgeRouter extends Construct {
@@ -85,9 +88,28 @@ async function handler(event) {
       },
     });
 
+    // Handle optional custom domain and ACM certificate
+    let certificate: ICertificate | undefined;
+    if (props.domainName) {
+      if (props.certificateArn) {
+        certificate = Certificate.fromCertificateArn(
+          this,
+          'CustomDomainCert',
+          props.certificateArn
+        );
+      } else {
+        certificate = new Certificate(this, 'CustomDomainCert', {
+          domainName: props.domainName,
+          validation: CertificateValidation.fromDns(),
+        });
+      }
+    }
+
     // CloudFront Distribution
     this.distribution = new Distribution(this, 'Distribution', {
       comment: 'Paperless-NGX On-Demand Distribution',
+      domainNames: props.domainName ? [props.domainName] : undefined,
+      certificate,
       defaultBehavior: {
         origin: defaultOrigin,
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
