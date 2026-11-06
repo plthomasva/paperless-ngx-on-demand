@@ -80,7 +80,7 @@ jobs:
 
       - name: SonarQube Scan
         if: matrix.node-version == '24.x' && github.actor != 'dependabot[bot]'
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v8
         with:
           args: >
             -Dsonar.qualitygate.wait=true
