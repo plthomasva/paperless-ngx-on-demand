@@ -5,6 +5,7 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=plthomasva_paperless-ngx-on-demand&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=plthomasva_paperless-ngx-on-demand)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=plthomasva_paperless-ngx-on-demand&metric=coverage)](https://sonarcloud.io/summary/new_code?id=plthomasva_paperless-ngx-on-demand)
 [![Mutation Status](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fplthomasva%2Fpaperless-ngx-on-demand%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/plthomasva/paperless-ngx-on-demand/main)
+[![Documentation](https://img.shields.io/badge/Docs-Starlight-blue.svg)](https://plthomasva.github.io/paperless-ngx-on-demand/)
 
 An Infrastructure-as-Code (AWS CDK in TypeScript) deployment of [Paperless-NGX](https://docs.paperless-ngx.com/) designed for **single-tenant home / personal use** with **zero idle compute cost** (~$1.50–$2.40/month total storage cost vs. $80+/month for standard cloud setups).
 
