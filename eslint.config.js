@@ -19,6 +19,7 @@ export default tseslint.config(
       'lib/lambda/favicon-data.ts',
       'paperless.config.json',
       'data.json',
+      'docs/**',
     ],
   },
 

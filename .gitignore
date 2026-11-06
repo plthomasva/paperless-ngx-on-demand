@@ -37,3 +37,8 @@ scratch/
 coverage/
 reports/
 .stryker-tmp/
+
+# Documentation Site (Astro / Starlight)
+docs/dist/
+docs/.astro/
+docs/node_modules/

@@ -17,3 +17,4 @@ scripts/**/*.js
 test/**/*.js
 **/*.d.ts
 
+docs/**

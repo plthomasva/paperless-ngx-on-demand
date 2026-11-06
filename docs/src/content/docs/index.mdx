@@ -1,0 +1,34 @@
+---
+title: Paperless-NGX On-Demand
+description: Self-hosted document archiving on AWS with $0/hr idle compute and automatic scale-to-zero.
+template: splash
+hero:
+  tagline: Run your personal Paperless-NGX instance on AWS for ~$1.50–$2.40/month instead of $80+/month. Sleeps when idle, wakes up on browser access or S3 drop, and shuts down safely when indexing completes.
+  actions:
+    - text: Get Started
+      link: /paperless-ngx-on-demand/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/plthomasva/paperless-ngx-on-demand
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Key Highlights
+
+<CardGrid stagger>
+  <Card title="Zero Idle Compute Cost" icon="rocket">
+    Your EC2 compute instance automatically stops when inactive. You pay $0.00/hour for compute while you sleep, work, or travel.
+  </Card>
+  <Card title="Seamless Edge Wake-Up" icon="laptop">
+    CloudFront KeyValueStore routes traffic instantly. Visiting your custom domain wakes the instance and shows an auto-refreshing progress splash.
+  </Card>
+  <Card title="6-Layer Task-Drain Watchdog" icon="shield">
+    The shutdown watchdog validates HTTP inactivity, Celery task completion, CPU thresholds, lockfiles, and database backup before stopping.
+  </Card>
+  <Card title="Drop-and-Forget Ingestion" icon="document">
+    Drop PDFs directly into an S3 inbox bucket from mobile shortcuts, email forwarders, or scanner scripts to wake the instance headless.
+  </Card>
+</CardGrid>
