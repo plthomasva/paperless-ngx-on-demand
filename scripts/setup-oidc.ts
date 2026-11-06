@@ -94,9 +94,8 @@ async function main() {
           },
           StringLike: {
             'token.actions.githubusercontent.com:sub': [
-              `repo:${repoName}:environment:production`,
-              `repo:${repoName}:ref:refs/heads/main`,
-              `repo:${repoName}:ref:refs/tags/*`,
+              `repo:${repoName}:*`,
+              `repo:${repoName.replace('/', '@*/')}@*:*`,
             ],
           },
         },
