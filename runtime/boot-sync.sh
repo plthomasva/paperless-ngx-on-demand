@@ -25,8 +25,9 @@ chmod 777 /tmp/paperless
 chown -R 1000:1000 /mnt/data /mnt/consume /mnt/export /tmp/paperless
 
 # 2. Restore SQLite and search index from S3 if /mnt/data is empty
+PENDING_LOADDATA=false
 if [[ ! -f "/mnt/data/db.sqlite3" ]] && [[ -n "$INBOX_BUCKET" ]]; then
-  log "Database /mnt/data/db.sqlite3 not found. Checking S3 for latest backup..."
+  log "Database /mnt/data/db.sqlite3 not found. Checking S3 for backups or data.json..."
   if aws s3 ls "s3://${INBOX_BUCKET}/backups/paperless-data-latest.tar.gz" --region "$AWS_REGION" >/dev/null 2>&1; then
     log "Restoring data from s3://${INBOX_BUCKET}/backups/paperless-data-latest.tar.gz..."
     aws s3 cp "s3://${INBOX_BUCKET}/backups/paperless-data-latest.tar.gz" /tmp/paperless-data-latest.tar.gz --region "$AWS_REGION"
@@ -34,8 +35,13 @@ if [[ ! -f "/mnt/data/db.sqlite3" ]] && [[ -n "$INBOX_BUCKET" ]]; then
     rm -f /tmp/paperless-data-latest.tar.gz
     chown -R 1000:1000 /mnt/data
     log "Restore complete."
+  elif aws s3 ls "s3://${INBOX_BUCKET}/export/data.json" --region "$AWS_REGION" >/dev/null 2>&1; then
+    log "Found exported data.json in S3! Downloading for initial SQLite import..."
+    aws s3 cp "s3://${INBOX_BUCKET}/export/data.json" /tmp/data.json --region "$AWS_REGION"
+    chmod 666 /tmp/data.json
+    PENDING_LOADDATA=true
   else
-    log "No existing backup found in S3. Starting with fresh database."
+    log "No existing backup or export found in S3. Starting with fresh database."
   fi
 fi
 
@@ -89,7 +95,18 @@ if [[ "$waited" -ge "$max_wait" ]]; then
   log "Warning: Paperless-NGX took longer than ${max_wait}s to respond, but proceeding with KVS registration."
 fi
 
-# 7. Retrieve IMDSv2 token and instance public DNS hostname
+# 7. If initial data.json was found, import it into SQLite and rebuild search index
+if [[ "$PENDING_LOADDATA" == "true" ]]; then
+  log "Initial import: loading data.json into SQLite via loaddata..."
+  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py loaddata /tmp/data.json || log "Warning: loaddata non-zero exit."
+  log "Rebuilding search index for imported documents..."
+  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_redo_search_index || log "Warning: document_redo_search_index non-zero exit."
+  rm -f /tmp/data.json
+  log "Initial database import complete! Creating first SQLite backup in S3..."
+  /opt/paperless/runtime/backup-data.sh || log "Warning: Initial backup non-zero exit."
+fi
+
+# 8. Retrieve IMDSv2 token and instance public DNS hostname
 imds_token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || echo "")
 public_hostname=""
 if [[ -n "$imds_token" ]]; then
@@ -103,7 +120,7 @@ fi
 
 log "Detected instance public address: $public_hostname"
 
-# 8. Update CloudFront KeyValueStore with status='running' and originDomain
+# 9. Update CloudFront KeyValueStore with status='running' and originDomain
 if [[ -n "$KVS_NAME" ]] && [[ -n "$public_hostname" ]]; then
   log "Updating CloudFront KeyValueStore ($KVS_NAME)..."
   etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region "$AWS_REGION" --query "ETag" --output text 2>/dev/null || echo "")
@@ -134,4 +151,3 @@ fi
 touch /tmp/access.log
 
 log "Paperless-NGX boot-sync finished successfully."
-

@@ -21,8 +21,14 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Environment / Local Secrets
+# Local User Config, Secrets and Dumps
 .env
 .env.local
+.paperless-config.json
+paperless.config.json
+cdk.context.json
+data.json
+*.json.bak
+*.tar.gz
+*.dump
 scratch/
-

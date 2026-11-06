@@ -68,8 +68,9 @@ describe('PaperlessOnDemandStack Architecture Guardrails', () => {
     });
   });
 
-  it('provisions S3 Inbox bucket with versioning and backup lifecycle expiration', () => {
+  it('provisions conflict-free account-and-region namespaced S3 bucket with versioning', () => {
     template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'paperless-storage-123456789012-us-east-1',
       VersioningConfiguration: {
         Status: 'Enabled',
       },

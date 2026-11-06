@@ -1,0 +1,11 @@
+{
+  "$schema": "./paperless.config.schema.json",
+  "awsProfile": "default",
+  "region": "us-east-1",
+  "existingBucketName": "",
+  "mediaSubpath": "media",
+  "domainName": "",
+  "certificateArn": "",
+  "adminUser": "admin",
+  "adminEmail": "admin@example.com"
+}

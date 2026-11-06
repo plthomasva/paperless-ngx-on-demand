@@ -11,7 +11,8 @@ import * as crypto from 'crypto';
 export interface PaperlessOnDemandStackProps extends StackProps {
   /**
    * Name of your existing S3 bucket containing Paperless storage.
-   * If provided, this bucket will be used for both media and drop inbox / backups.
+   * If omitted, a conflict-free account-and-region namespaced bucket
+   * (paperless-storage-${account}-${region}) is created automatically.
    */
   readonly existingBucketName?: string;
 
@@ -21,8 +22,8 @@ export interface PaperlessOnDemandStackProps extends StackProps {
   readonly existingMediaBucketName?: string;
 
   /**
-   * S3 prefix inside existingBucketName where media/documents reside.
-   * Defaults to 'media' if existing bucket has media/documents/, or empty if mounted at root.
+   * S3 prefix inside the storage bucket where media/documents reside.
+   * Defaults to 'media'.
    */
   readonly mediaSubpath?: string;
 
@@ -85,21 +86,18 @@ export class PaperlessOnDemandStack extends Stack {
       service: GatewayVpcEndpointAwsService.S3,
     });
 
-    // 3 & 4. S3 Storage Configuration:
-    // If an existing bucket name is provided, use it for both media and inbox/backups.
+    // 3. S3 Storage Configuration:
+    // If an existing bucket name is provided, use it.
+    // If starting fresh, generate a conflict-free account-and-region namespaced bucket name.
     const existingName = props.existingBucketName || props.existingMediaBucketName;
     if (existingName) {
       const existing = Bucket.fromBucketName(this, 'ExistingStorageBucket', existingName);
       this.mediaBucket = existing;
       this.inboxBucket = existing;
     } else {
-      this.mediaBucket = new Bucket(this, 'MediaBucket', {
-        encryption: BucketEncryption.S3_MANAGED,
-        blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-        removalPolicy: RemovalPolicy.RETAIN,
-      });
-
-      this.inboxBucket = new Bucket(this, 'InboxBucket', {
+      const defaultBucketName = `paperless-storage-${this.account}-${this.region}`;
+      const defaultBucket = new Bucket(this, 'StorageBucket', {
+        bucketName: defaultBucketName,
         encryption: BucketEncryption.S3_MANAGED,
         blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
         versioned: true,
@@ -112,17 +110,19 @@ export class PaperlessOnDemandStack extends Stack {
         ],
         removalPolicy: RemovalPolicy.RETAIN,
       });
+      this.mediaBucket = defaultBucket;
+      this.inboxBucket = defaultBucket;
     }
 
     // Generate a secure secret token for CloudFront -> Origin verification
     const originVerifySecret = crypto.randomBytes(32).toString('hex');
 
-    // 5. CloudFront KeyValueStore for dynamic edge routing
+    // 4. CloudFront KeyValueStore for dynamic edge routing
     const routingKvs = new KeyValueStore(this, 'RoutingKvs', {
       comment: 'Paperless-NGX dynamic edge routing state',
     });
 
-    // 6. Compute Instance (EC2 t4g.medium Graviton in public subnet with CloudFront-only SG)
+    // 5. Compute Instance (EC2 t4g.medium Graviton in public subnet with CloudFront-only SG)
     this.compute = new ComputeInstance(this, 'Compute', {
       vpc: this.vpc,
       mediaBucket: this.mediaBucket,
@@ -136,14 +136,14 @@ export class PaperlessOnDemandStack extends Stack {
       domainName: props.domainName,
     });
 
-    // 7. Wake-Up & Lifecycle Orchestrator Lambda
+    // 6. Wake-Up & Lifecycle Orchestrator Lambda
     this.orchestrator = new WakeupOrchestrator(this, 'Orchestrator', {
       instance: this.compute.instance,
       kvsArn: routingKvs.keyValueStoreArn,
       inboxBucket: this.inboxBucket,
     });
 
-    // 8. CloudFront Edge Router Distribution
+    // 7. CloudFront Edge Router Distribution
     this.edgeRouter = new EdgeRouter(this, 'EdgeRouter', {
       wakeupFunctionUrl: this.orchestrator.functionUrl,
       originVerifySecret,
@@ -167,9 +167,9 @@ export class PaperlessOnDemandStack extends Stack {
       description: 'CloudFront distribution default domain',
     });
 
-    new CfnOutput(this, 'S3InboxBucket', {
+    new CfnOutput(this, 'S3StorageBucket', {
       value: this.inboxBucket.bucketName,
-      description: 'S3 bucket for drop ingestion (upload PDFs to s3://<bucket>/consume/) and backups',
+      description: 'Unified S3 storage bucket for media, drop ingestion (/consume), and backups',
     });
 
     new CfnOutput(this, 'InstanceId', {
