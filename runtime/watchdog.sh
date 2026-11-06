@@ -32,8 +32,8 @@ COMPOSE_FILE="/opt/paperless/runtime/docker-compose.yml"
 
 idle_passes=0
 
-# Ensure access log exists initially so stat doesn't fail
-touch "$ACCESS_LOG"
+# Ensure access log exists initially without modifying timestamp if already present
+[[ -f "$ACCESS_LOG" ]] || touch "$ACCESS_LOG"
 
 log() {
   echo "[watchdog $(date -u +'%Y-%m-%d %H:%M:%SZ')] $*"
@@ -63,7 +63,8 @@ pull_s3_inbox() {
     local s3_count
     s3_count=$(aws s3 ls "s3://${INBOX_BUCKET}/consume/" --region "$AWS_REGION" 2>/dev/null | awk '$3 > 0 {print $4}' | wc -l || echo 0)
     s3_count=$(echo "$s3_count" | tr -dc '0-9')
-    if [[ -n "$s3_count" ]] && [[ "$s3_count" -gt 0 ]]; then
+    s3_count=${s3_count:-0}
+    if [[ "$s3_count" -gt 0 ]]; then
       log "Found $s3_count file(s) in S3 Inbox. Moving to /mnt/consume/..."
       aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --exclude "" --exclude "*/" --region "$AWS_REGION" 2>/dev/null || true
       # Reset idle activity since new files just arrived
@@ -98,7 +99,8 @@ is_system_busy() {
   redis_queue_len=$(docker compose -f "$COMPOSE_FILE" exec -T broker redis-cli LLEN celery 2>/dev/null || echo "0")
   # Strip any carriage returns or whitespace
   redis_queue_len=$(echo "$redis_queue_len" | tr -dc '0-9')
-  if [[ -n "$redis_queue_len" ]] && [[ "$redis_queue_len" -gt 0 ]]; then
+  redis_queue_len=${redis_queue_len:-0}
+  if [[ "$redis_queue_len" -gt 0 ]]; then
     log "Busy: $redis_queue_len tasks waiting in Redis Celery queue."
     return 0
   fi
@@ -108,7 +110,8 @@ is_system_busy() {
   active_tasks=$(curl -sf -m 5 "http://127.0.0.1:8080/api/tasks/" 2>/dev/null \
     | grep -oE '"status":\s*"(PENDING|STARTED|RETRY)"' | wc -l || echo 0)
   active_tasks=$(echo "$active_tasks" | tr -dc '0-9')
-  if [[ -n "$active_tasks" ]] && [[ "$active_tasks" -gt 0 ]]; then
+  active_tasks=${active_tasks:-0}
+  if [[ "$active_tasks" -gt 0 ]]; then
     log "Busy: $active_tasks active or pending task(s) in Paperless API."
     return 0
   fi
