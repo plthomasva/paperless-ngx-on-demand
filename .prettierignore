@@ -11,3 +11,9 @@ CHANGELOG.md
 paperless.config.json
 data.json
 lib/lambda/favicon-data.ts
+bin/**/*.js
+lib/**/*.js
+scripts/**/*.js
+test/**/*.js
+**/*.d.ts
+

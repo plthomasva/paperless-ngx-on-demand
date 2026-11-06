@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "testRunner": "vitest",
   "vitest": {
-    "configFile": "vitest.config.ts"
+    "configFile": "vitest.config.ts",
+    "related": false
   },
   "reporters": ["progress", "clear-text", "html", "json", "dashboard"],
   "htmlReporter": {
@@ -12,8 +13,8 @@
     "version": "main",
     "reportType": "full"
   },
-  "coverageAnalysis": "perTest",
-  "ignoreStatic": true,
+  "coverageAnalysis": "all",
+  "ignoreStatic": false,
   "thresholds": {
     "high": 80,
     "low": 60,
