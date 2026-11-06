@@ -1,0 +1,70 @@
+services:
+  broker:
+    image: docker.io/library/redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    networks:
+      - paperless-net
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - broker
+    ports:
+      - "127.0.0.1:8080:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost:8000/api/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      # SQLite database and Whoosh full-text index live on local EBS gp3
+      - /mnt/data:/usr/src/paperless/data
+      # Media library (originals, archive, thumbnails) lives on S3 via s3fs
+      - /mnt/paperless-media:/usr/src/paperless/media
+      - /mnt/export:/usr/src/paperless/export
+      - /mnt/consume:/usr/src/paperless/consume
+      # Local fast EBS scratch directory for Tesseract / Ghostscript / OCRmyPDF
+      - /tmp/paperless:/tmp/paperless
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBENGINE: sqlite
+      PAPERLESS_DATA_DIR: /usr/src/paperless/data
+      PAPERLESS_MEDIA_ROOT: /usr/src/paperless/media
+      PAPERLESS_SCRATCH_DIR: /tmp/paperless
+      PAPERLESS_CONSUMPTION_DIR: /usr/src/paperless/consume
+      PAPERLESS_TRUSTED_PROXIES: "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      PAPERLESS_USE_X_FORWARD_HOST: "true"
+      PAPERLESS_USE_X_FORWARD_PORT: "true"
+      PAPERLESS_SECRET_KEY: "${PAPERLESS_SECRET_KEY:-change-me-to-a-secure-key}"
+      PAPERLESS_ADMIN_USER: "${PAPERLESS_ADMIN_USER:-admin}"
+      PAPERLESS_ADMIN_PASSWORD: "${PAPERLESS_ADMIN_PASSWORD:-admin}"
+      PAPERLESS_ADMIN_EMAIL: "${PAPERLESS_ADMIN_EMAIL:-admin@example.com}"
+      PAPERLESS_TIME_ZONE: "${PAPERLESS_TIME_ZONE:-UTC}"
+      PAPERLESS_OCR_LANGUAGE: "${PAPERLESS_OCR_LANGUAGE:-eng}"
+      USERMAP_UID: 1000
+      USERMAP_GID: 1000
+    networks:
+      - paperless-net
+
+  activity-proxy:
+    image: docker.io/library/nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - webserver
+    network_mode: host
+    volumes:
+      - /opt/paperless/runtime/nginx-activity.conf:/etc/nginx/templates/nginx.conf.template:ro
+      - /tmp:/tmp
+    environment:
+      ORIGIN_VERIFY_SECRET: "${ORIGIN_VERIFY_SECRET:-}"
+    command: /bin/sh -c "envsubst '$$ORIGIN_VERIFY_SECRET' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
+
+volumes:
+  redisdata:
+
+networks:
+  paperless-net:
+    driver: bridge
