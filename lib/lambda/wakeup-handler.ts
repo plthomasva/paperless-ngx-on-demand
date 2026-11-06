@@ -1,8 +1,4 @@
-import {
-  EC2Client,
-  DescribeInstancesCommand,
-  StartInstancesCommand,
-} from '@aws-sdk/client-ec2';
+import { EC2Client, DescribeInstancesCommand, StartInstancesCommand } from '@aws-sdk/client-ec2';
 import {
   CloudFrontKeyValueStoreClient,
   DescribeKeyValueStoreCommand,
@@ -18,9 +14,18 @@ const kvs = new CloudFrontKeyValueStoreClient({});
 const INSTANCE_ID = process.env.INSTANCE_ID || '';
 const KVS_ARN = process.env.KVS_ARN || '';
 
-const BOT_UA_REGEX = /(bot|crawler|spider|slurp|bingpreview|headless|ahrefs|semrush|petalbot|bytespider|yandex)/i;
+const BOT_UA_REGEX =
+  /(bot|crawler|spider|slurp|bingpreview|headless|ahrefs|semrush|petalbot|bytespider|yandex)/i;
 const SCANNER_PROBE_REGEX = /\.(php|asp|aspx|jsp|cgi|env|git|yml|yaml|bak|sql|tar|gz|zip)($|\?)/i;
-const SCANNER_PATH_PREFIXES = ['/wp-login', '/wp-admin', '/admin', '/xmlrpc.php', '/phpmyadmin', '/boaform', '/setup.cgi'];
+const SCANNER_PATH_PREFIXES = [
+  '/wp-login',
+  '/wp-admin',
+  '/admin',
+  '/xmlrpc.php',
+  '/phpmyadmin',
+  '/boaform',
+  '/setup.cgi',
+];
 
 interface LambdaResponse {
   statusCode: number;
@@ -34,7 +39,7 @@ export async function getKvsStatus(kvsArn: string): Promise<string> {
   try {
     const res = await kvs.send(new GetKeyCommand({ KvsARN: kvsArn, Key: 'status' }));
     return res.Value || 'unknown';
-  } catch (err: any) {
+  } catch (_err) {
     return 'stopped';
   }
 }
@@ -59,7 +64,9 @@ export async function updateKvsKey(kvsArn: string, key: string, value: string): 
   }
 }
 
-export async function getInstanceState(instanceId: string): Promise<{ state: string; publicHostname?: string }> {
+export async function getInstanceState(
+  instanceId: string
+): Promise<{ state: string; publicHostname?: string }> {
   if (!instanceId) return { state: 'unknown' };
   try {
     const res = await ec2.send(
@@ -124,7 +131,7 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'public, max-age=86400',
       },
-      body: "User-agent: *\nDisallow: /\n",
+      body: 'User-agent: *\nDisallow: /\n',
     };
   }
 
@@ -142,7 +149,10 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
   }
 
   // 3c. Scanner / vulnerability probe paths - Return 404 without waking compute
-  if (SCANNER_PROBE_REGEX.test(requestPath) || SCANNER_PATH_PREFIXES.some((p) => requestPath.startsWith(p))) {
+  if (
+    SCANNER_PROBE_REGEX.test(requestPath) ||
+    SCANNER_PATH_PREFIXES.some((p) => requestPath.startsWith(p))
+  ) {
     return {
       statusCode: 404,
       headers: {
@@ -156,7 +166,8 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
   // Endpoint: /__wakeup/status JSON poll
   if (requestPath.startsWith('/__wakeup/status')) {
     const rawQuery = event?.rawQueryString || '';
-    const shouldWake = rawQuery.includes('action=wake') || event?.requestContext?.http?.method === 'POST';
+    const shouldWake =
+      rawQuery.includes('action=wake') || event?.requestContext?.http?.method === 'POST';
 
     // If JavaScript initiated the wake action and is not a known crawler bot, trigger wake
     if (shouldWake && !BOT_UA_REGEX.test(userAgent)) {
@@ -168,7 +179,7 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
 
     // The application is ONLY considered "running" when the EC2 boot-sync hook
     // has verified that Paperless is healthy on port 8000 AND updated KVS.
-    let effectiveState = 'stopped';
+    let effectiveState: string;
     if (kvsStatus === 'running') {
       effectiveState = 'running';
     } else if (ec2State === 'running') {
@@ -219,4 +230,3 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
     body: html,
   };
 }
-

@@ -145,4 +145,3 @@ export function renderWakeupPage(requestedPath: string): string {
 </body>
 </html>`;
 }
-

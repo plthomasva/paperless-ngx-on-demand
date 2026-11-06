@@ -9,8 +9,12 @@ vi.mock('@aws-sdk/client-ec2', () => {
     EC2Client: vi.fn().mockImplementation(() => ({
       send: mockEc2Send,
     })),
-    DescribeInstancesCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'DescribeInstances' })),
-    StartInstancesCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'StartInstances' })),
+    DescribeInstancesCommand: vi
+      .fn()
+      .mockImplementation((input) => ({ input, _type: 'DescribeInstances' })),
+    StartInstancesCommand: vi
+      .fn()
+      .mockImplementation((input) => ({ input, _type: 'StartInstances' })),
   };
 });
 
@@ -19,7 +23,9 @@ vi.mock('@aws-sdk/client-cloudfront-keyvaluestore', () => {
     CloudFrontKeyValueStoreClient: vi.fn().mockImplementation(() => ({
       send: mockKvsSend,
     })),
-    DescribeKeyValueStoreCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'DescribeKvs' })),
+    DescribeKeyValueStoreCommand: vi
+      .fn()
+      .mockImplementation((input) => ({ input, _type: 'DescribeKvs' })),
     PutKeyCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'PutKey' })),
     GetKeyCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'GetKey' })),
   };
@@ -68,7 +74,10 @@ describe('Wakeup Lambda Handler', () => {
 
     const event = {
       rawPath: '/documents',
-      headers: { host: 'paperless.example.com', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      headers: {
+        host: 'paperless.example.com',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      },
     };
 
     const response = (await handler(event)) as any;
@@ -96,7 +105,13 @@ describe('Wakeup Lambda Handler', () => {
 
     // 2nd DescribeInstances in status poll
     mockEc2Send.mockResolvedValueOnce({
-      Reservations: [{ Instances: [{ State: { Name: 'pending' }, PublicDnsName: 'ec2-test.compute-1.amazonaws.com' }] }],
+      Reservations: [
+        {
+          Instances: [
+            { State: { Name: 'pending' }, PublicDnsName: 'ec2-test.compute-1.amazonaws.com' },
+          ],
+        },
+      ],
     });
     // KVS get status
     mockKvsSend.mockResolvedValueOnce({ Value: 'starting' });
@@ -211,4 +226,3 @@ describe('Wakeup Lambda Handler', () => {
     expect(mockKvsSend).toHaveBeenCalled();
   });
 });
-

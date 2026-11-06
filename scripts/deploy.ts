@@ -18,7 +18,9 @@ async function main() {
       shell: true,
     });
     await new Promise((resolve, reject) => {
-      setupProc.on('close', (code) => (code === 0 ? resolve(null) : reject(new Error(`Setup failed with code ${code}`))));
+      setupProc.on('close', (code) =>
+        code === 0 ? resolve(null) : reject(new Error(`Setup failed with code ${code}`))
+      );
     });
   }
 
@@ -26,7 +28,9 @@ async function main() {
   const profile = config.awsProfile || 'default';
   const region = config.region || 'us-east-1';
 
-  console.log(`\nDeploying Paperless-NGX On-Demand using AWS profile "${profile}" in region "${region}"...`);
+  console.log(
+    `\nDeploying Paperless-NGX On-Demand using AWS profile "${profile}" in region "${region}"...`
+  );
 
   const cdkArgs = ['cdk', 'deploy'];
   if (profile) {
@@ -55,4 +59,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

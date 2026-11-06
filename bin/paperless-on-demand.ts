@@ -32,17 +32,13 @@ const existingBucketName =
   localConfig.existingBucketName ||
   localConfig.existingMediaBucketName;
 
-const mediaSubpath =
-  app.node.tryGetContext('mediaSubpath') || localConfig.mediaSubpath || 'media';
+const mediaSubpath = app.node.tryGetContext('mediaSubpath') || localConfig.mediaSubpath || 'media';
 
-const domainName =
-  app.node.tryGetContext('domainName') || localConfig.domainName;
+const domainName = app.node.tryGetContext('domainName') || localConfig.domainName;
 
-const certificateArn =
-  app.node.tryGetContext('certificateArn') || localConfig.certificateArn;
+const certificateArn = app.node.tryGetContext('certificateArn') || localConfig.certificateArn;
 
-const adminUser =
-  app.node.tryGetContext('adminUser') || localConfig.adminUser || 'admin';
+const adminUser = app.node.tryGetContext('adminUser') || localConfig.adminUser || 'admin';
 
 const adminEmail =
   app.node.tryGetContext('adminEmail') || localConfig.adminEmail || 'admin@example.com';
@@ -58,9 +54,7 @@ const targetRegion =
   'us-east-1';
 
 const targetAccount =
-  app.node.tryGetContext('account') ||
-  localConfig.account ||
-  process.env.CDK_DEFAULT_ACCOUNT;
+  app.node.tryGetContext('account') || localConfig.account || process.env.CDK_DEFAULT_ACCOUNT;
 
 new PaperlessOnDemandStack(app, 'PaperlessOnDemandStack', {
   existingBucketName,
@@ -74,7 +68,8 @@ new PaperlessOnDemandStack(app, 'PaperlessOnDemandStack', {
     account: targetAccount,
     region: targetRegion,
   },
-  description: 'On-demand scale-to-zero Paperless-NGX architecture with CloudFront KVS dynamic routing',
+  description:
+    'On-demand scale-to-zero Paperless-NGX architecture with CloudFront KVS dynamic routing',
 });
 
 app.synth();

@@ -1,0 +1,13 @@
+dist
+coverage
+reports
+.stryker-tmp
+cdk.out
+cdk.context.json
+node_modules
+package-lock.json
+*.log
+CHANGELOG.md
+paperless.config.json
+data.json
+lib/lambda/favicon-data.ts

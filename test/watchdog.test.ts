@@ -67,4 +67,3 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     expect(content).toContain('originDomain');
   });
 });
-

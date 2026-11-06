@@ -1,7 +1,13 @@
 import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc, SubnetType, GatewayVpcEndpointAwsService } from 'aws-cdk-lib/aws-ec2';
-import { Bucket, BlockPublicAccess, BucketEncryption, IBucket, CfnBucket } from 'aws-cdk-lib/aws-s3';
+import {
+  Bucket,
+  BlockPublicAccess,
+  BucketEncryption,
+  IBucket,
+  CfnBucket,
+} from 'aws-cdk-lib/aws-s3';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { KeyValueStore } from 'aws-cdk-lib/aws-cloudfront';
 import { ComputeInstance } from './constructs/compute-instance.js';

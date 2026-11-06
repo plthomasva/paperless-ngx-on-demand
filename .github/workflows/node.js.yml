@@ -1,0 +1,111 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    name: Code Quality & Security
+    if: ${{ !startsWith(github.head_ref, 'release-please-') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for gitleaks
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run type-check
+      - name: Format check
+        run: npm run format:check
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  unit-tests:
+    name: Unit & Architectural Tests
+    if: ${{ !startsWith(github.head_ref, 'release-please-') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        node-version: [22.x, 24.x]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for SonarCloud analysis
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Build
+        run: npm run build
+      - name: Test and Coverage
+        run: npm run test:coverage
+
+      - name: Extract Repository Info for Sonar
+        if: matrix.node-version == '24.x' && github.actor != 'dependabot[bot]'
+        run: |
+          ORG="${GITHUB_REPOSITORY%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          echo "SONAR_ORG=$ORG" >> $GITHUB_ENV
+          echo "SONAR_PROJECT_KEY=${ORG}_${REPO}" >> $GITHUB_ENV
+
+      - name: SonarQube Scan
+        if: matrix.node-version == '24.x' && github.actor != 'dependabot[bot]'
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.organization=${{ env.SONAR_ORG }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  ci-success:
+    name: CI Success
+    if: always()
+    needs: [quality-checks, unit-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify build result
+        run: |
+          q_res="${{ needs.quality-checks.result }}"
+          u_res="${{ needs.unit-tests.result }}"
+          echo "quality-checks result: $q_res"
+          echo "unit-tests result: $u_res"
+          for res in "$q_res" "$u_res"; do
+            if [ "$res" = "failure" ] || [ "$res" = "cancelled" ]; then
+              exit 1
+            fi
+          done

@@ -15,12 +15,7 @@ import {
   UserData,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import {
-  Role,
-  ServicePrincipal,
-  ManagedPolicy,
-  PolicyStatement,
-} from 'aws-cdk-lib/aws-iam';
+import { Role, ServicePrincipal, ManagedPolicy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IBucket } from 'aws-cdk-lib/aws-s3';
 
 export interface ComputeInstanceProps {
@@ -49,9 +44,7 @@ export class ComputeInstance extends Construct {
     this.role = new Role(this, 'PaperlessEc2Role', {
       assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
       description: 'IAM role for Paperless-NGX EC2 instance with S3, KVS, and SSM permissions',
-      managedPolicies: [
-        ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
-      ],
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
     });
 
     // Grant access to existing S3 Media bucket (for s3fs)
@@ -115,7 +108,7 @@ export class ComputeInstance extends Construct {
       'mkdir -p /opt/paperless/runtime /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless /var/cache/s3fs',
       '',
       '# Write environment file',
-      'cat << \'EOF\' > /opt/paperless/runtime/.env',
+      "cat << 'EOF' > /opt/paperless/runtime/.env",
       `MEDIA_BUCKET=${props.mediaBucket.bucketName}`,
       `MEDIA_SUBPATH=${props.mediaSubpath || 'media'}`,
       `INBOX_BUCKET=${props.inboxBucket.bucketName}`,
@@ -135,7 +128,7 @@ export class ComputeInstance extends Construct {
       'chmod +x /opt/paperless/runtime/*.sh || true',
       '',
       '# Create systemd boot sync service',
-      'cat << \'EOF\' > /etc/systemd/system/paperless-boot.service',
+      "cat << 'EOF' > /etc/systemd/system/paperless-boot.service",
       '[Unit]',
       'Description=Paperless-NGX Boot Sync and Initialization',
       'After=network-online.target docker.service',
@@ -152,7 +145,7 @@ export class ComputeInstance extends Construct {
       'EOF',
       '',
       '# Create systemd watchdog service',
-      'cat << \'EOF\' > /etc/systemd/system/paperless-watchdog.service',
+      "cat << 'EOF' > /etc/systemd/system/paperless-watchdog.service",
       '[Unit]',
       'Description=Paperless-NGX Session & Indexing Drain Watchdog',
       'After=paperless-boot.service',
@@ -197,4 +190,3 @@ export class ComputeInstance extends Construct {
     });
   }
 }
-

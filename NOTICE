@@ -1,0 +1,38 @@
+========================================================================
+NOTICES AND THIRD-PARTY COMPONENT ATTRIBUTION
+========================================================================
+
+Paperless-NGX On-Demand
+Copyright (c) 2026 Peter L. Thomas
+Licensed under the Creative Commons Attribution-NonCommercial 4.0
+International Public License (CC BY-NC 4.0).
+
+------------------------------------------------------------------------
+1. Paperless-NGX (Upstream Project & Assets)
+------------------------------------------------------------------------
+
+This deployment orchestration harness deploys and configures Paperless-NGX,
+an open-source document management system developed by the Paperless-NGX team
+and community contributors.
+
+Upstream Project: https://github.com/paperless-ngx/paperless-ngx
+Upstream License: GNU General Public License v3.0 (GPL-3.0)
+
+Included / Derived Assets:
+- Favicon icon (`favicon.ico`, embedded in `lib/lambda/favicon-data.ts`)
+  Source: https://raw.githubusercontent.com/paperless-ngx/paperless-ngx/dev/src/paperless/static/paperless/img/favicon.ico
+  Copyright: (C) Paperless-NGX Contributors
+  License: GNU General Public License v3.0 (GPL-3.0)
+
+The Paperless-NGX favicon asset is distributed under the terms of the GNU
+General Public License v3.0. You may obtain a copy of the GPL-3.0 license at:
+<https://www.gnu.org/licenses/gpl-3.0.txt> or in the upstream repository.
+
+------------------------------------------------------------------------
+2. AWS Cloud Development Kit (CDK) & AWS SDK
+------------------------------------------------------------------------
+
+This project utilizes the AWS Cloud Development Kit (aws-cdk-lib) and
+AWS SDK for JavaScript v3, licensed under the Apache License, Version 2.0.
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+License: https://www.apache.org/licenses/LICENSE-2.0

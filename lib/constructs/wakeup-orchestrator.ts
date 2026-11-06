@@ -2,7 +2,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { Construct } from 'constructs';
 import { Duration } from 'aws-cdk-lib';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { NodejsFunction, OutputFormat } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime, FunctionUrl, FunctionUrlAuthType, HttpMethod } from 'aws-cdk-lib/aws-lambda';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IBucket, EventType } from 'aws-cdk-lib/aws-s3';
@@ -42,9 +42,10 @@ export class WakeupOrchestrator extends Construct {
         minify: true,
         sourceMap: true,
         target: 'node22',
-        format: 'esm',
+        format: OutputFormat.ESM,
         mainFields: ['module', 'main'],
-        banner: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
+        banner:
+          "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
       },
     });
 
@@ -108,4 +109,3 @@ export class WakeupOrchestrator extends Construct {
     stateChangeRule.addTarget(new LambdaFunction(this.wakeupFunction));
   }
 }
-

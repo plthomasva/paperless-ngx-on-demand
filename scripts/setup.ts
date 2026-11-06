@@ -16,7 +16,9 @@ let existingConfig: Record<string, any> = {};
 if (fs.existsSync(configPath)) {
   try {
     existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  } catch {}
+  } catch {
+    // Ignore unparseable existing config
+  }
 }
 
 async function main() {
@@ -40,7 +42,10 @@ async function main() {
   const awsProfile = await prompt('1. AWS CLI Profile name', defaultProfile);
 
   const defaultRegion = existingConfig.region || process.env.AWS_REGION || 'us-east-1';
-  const region = await prompt('2. AWS Region (CloudFront requires us-east-1 for ACM)', defaultRegion);
+  const region = await prompt(
+    '2. AWS Region (CloudFront requires us-east-1 for ACM)',
+    defaultRegion
+  );
 
   // 2. Fetch Account ID
   let accountId = existingConfig.account || '';
@@ -63,31 +68,49 @@ async function main() {
   console.log(`      paperless-storage-${accountId || '<account>'}-${region}`);
   console.log('  [B] Existing Bucket: Re-use an existing Paperless S3 storage bucket.');
 
-  const useExisting = await prompt('Do you want to re-use an existing S3 bucket? (y/N)', existingConfig.existingBucketName ? 'y' : 'N');
+  const useExisting = await prompt(
+    'Do you want to re-use an existing S3 bucket? (y/N)',
+    existingConfig.existingBucketName ? 'y' : 'N'
+  );
 
   let existingBucketName = '';
   let mediaSubpath = 'media';
   if (useExisting.toLowerCase().startsWith('y')) {
-    existingBucketName = await prompt('Existing S3 Bucket Name', existingConfig.existingBucketName || '');
-    mediaSubpath = await prompt('Media prefix/subpath inside bucket (e.g. "media" or "" for root)', existingConfig.mediaSubpath || 'media');
+    existingBucketName = await prompt(
+      'Existing S3 Bucket Name',
+      existingConfig.existingBucketName || ''
+    );
+    mediaSubpath = await prompt(
+      'Media prefix/subpath inside bucket (e.g. "media" or "" for root)',
+      existingConfig.mediaSubpath || 'media'
+    );
   } else {
     console.log(`✓ Will create fresh unified bucket: paperless-storage-${accountId}-${region}`);
   }
 
   // 4. Custom Domain & TLS Certificate
   console.log('\n--- Domain & TLS Configuration ---');
-  const domainName = await prompt('Custom domain (e.g. paperless.example.com, or leave empty for CloudFront URL)', existingConfig.domainName || '');
+  const domainName = await prompt(
+    'Custom domain (e.g. paperless.example.com, or leave empty for CloudFront URL)',
+    existingConfig.domainName || ''
+  );
 
   let certificateArn = '';
   if (domainName) {
     console.log('CloudFront requires an ACM certificate in us-east-1 for custom domains.');
-    certificateArn = await prompt('ACM Certificate ARN in us-east-1 (or leave empty to let CDK request one with DNS validation)', existingConfig.certificateArn || '');
+    certificateArn = await prompt(
+      'ACM Certificate ARN in us-east-1 (or leave empty to let CDK request one with DNS validation)',
+      existingConfig.certificateArn || ''
+    );
   }
 
   // 5. Paperless Initial Admin Credentials
   console.log('\n--- Paperless Initial Admin Credentials ---');
   const adminUser = await prompt('Paperless admin username', existingConfig.adminUser || 'admin');
-  const adminEmail = await prompt('Paperless admin email', existingConfig.adminEmail || 'admin@example.com');
+  const adminEmail = await prompt(
+    'Paperless admin email',
+    existingConfig.adminEmail || 'admin@example.com'
+  );
 
   rl.close();
 
@@ -117,4 +140,3 @@ main().catch((err) => {
   console.error('\nSetup error:', err);
   process.exit(1);
 });
-

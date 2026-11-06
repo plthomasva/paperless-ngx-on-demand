@@ -15,7 +15,11 @@ import {
 import { HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Fn } from 'aws-cdk-lib';
 import { FunctionUrl } from 'aws-cdk-lib/aws-lambda';
-import { Certificate, CertificateValidation, ICertificate } from 'aws-cdk-lib/aws-certificatemanager';
+import {
+  Certificate,
+  CertificateValidation,
+  ICertificate,
+} from 'aws-cdk-lib/aws-certificatemanager';
 
 export interface EdgeRouterProps {
   readonly wakeupFunctionUrl: FunctionUrl;

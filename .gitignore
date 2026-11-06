@@ -32,3 +32,8 @@ data.json
 *.tar.gz
 *.dump
 scratch/
+
+# Test & Coverage
+coverage/
+reports/
+.stryker-tmp/
