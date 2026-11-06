@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.1...paperless-ngx-on-demand-v1.1.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **wakeup:** calibrate wakeup splash screen timing to real 45-60s boot cycle and add progressive stage indicators ([7bf8eab](https://github.com/plthomasva/paperless-ngx-on-demand/commit/7bf8eab55b8c581813cd888ac5a49219c6f67c34))
+
 ## [1.1.1](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.0...paperless-ngx-on-demand-v1.1.1) (2026-11-06)
 
 
