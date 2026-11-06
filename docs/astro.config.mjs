@@ -37,6 +37,7 @@ export default defineConfig({
             { label: 'Evidence-Based Cost Analysis', slug: 'cost-analysis' },
             { label: 'Migration from Raspberry Pi / Docker', slug: 'migration' },
             { label: 'Automated CI/CD & Releases', slug: 'automation' },
+            { label: 'Community Outreach Drafts', slug: 'community-outreach' },
           ],
         },
       ],

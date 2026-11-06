@@ -44,6 +44,7 @@ export class WakeupOrchestrator extends Construct {
         target: 'node22',
         format: OutputFormat.ESM,
         mainFields: ['module', 'main'],
+        bundleAwsSDK: true,
         banner:
           "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
       },

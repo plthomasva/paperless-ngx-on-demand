@@ -62,3 +62,4 @@ For a personal home archivist scanning a handful of utility bills, tax receipts,
    As soon as health checks succeed on port 8000, the instance updates the CloudFront KVS to `"running"`. Subsequent web requests route directly to EC2 with zero Lambda invocation latency.
 6. **Task Drain & Safe Sleep**:
    A multi-layer watchdog monitors Celery task queues, HTTP traffic, OCR worker processes, and CPU utilization. When idle for 20 minutes with all indexing drained, it executes an automated SQLite `.backup`, syncs it to S3, updates KVS to `"stopped"`, and calls `aws ec2 stop-instances`.
+

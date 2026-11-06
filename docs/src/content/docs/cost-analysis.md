@@ -56,3 +56,4 @@ To maintain complete transparency, the following items are managed outside the A
 
 > [!TIP]
 > If you already own a personal domain hosted on Cloudflare or another DNS provider, you can add a `pod.yourdomain.com` CNAME pointing to CloudFront with **zero additional DNS hosting costs**.
+

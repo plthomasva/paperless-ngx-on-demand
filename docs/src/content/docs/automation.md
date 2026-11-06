@@ -62,3 +62,4 @@ Once a release is tagged on `main`, the deployment job in `.github/workflows/rel
 - **Fork Safety**: External pull requests from forks cannot access repository secrets or assume AWS IAM roles.
 - **Environment Protection**: The deployment step binds to the `production` environment, configured with a deployment branch policy that permits only the protected `main` branch.
 - **Hardened AWS Trust Policy**: AWS STS enforces that the OIDC subject (`sub`) matches `repo:plthomasva/paperless-ngx-on-demand:environment:production`, preventing rogue branches or actions from deploying.
+

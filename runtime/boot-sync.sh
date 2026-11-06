@@ -29,8 +29,13 @@ log "Starting Paperless-NGX boot initialization..."
 
 # Sync latest runtime scripts and configuration from S3 if available
 if [[ -n "$MEDIA_BUCKET" ]]; then
-  aws s3 sync "s3://${MEDIA_BUCKET}/runtime/" "/opt/paperless/runtime/" --region "$AWS_REGION" 2>/dev/null || true
-  chmod +x /opt/paperless/runtime/*.sh 2>/dev/null || true
+  if [[ "${BOOT_SYNC_REEXEC:-0}" != "1" ]]; then
+    log "Syncing latest runtime scripts from s3://${MEDIA_BUCKET}/runtime/..."
+    aws s3 sync "s3://${MEDIA_BUCKET}/runtime/" "/opt/paperless/runtime/" --region "$AWS_REGION" 2>/dev/null || true
+    chmod +x /opt/paperless/runtime/*.sh 2>/dev/null || true
+    export BOOT_SYNC_REEXEC=1
+    exec /opt/paperless/runtime/boot-sync.sh "$@"
+  fi
 fi
 
 # 1. Create required directories
@@ -60,16 +65,31 @@ if [[ ! -f "/mnt/data/db.sqlite3" ]] && [[ -n "$INBOX_BUCKET" ]]; then
 fi
 
 # 3. Mount S3 Media Bucket via mount-s3 if not already mounted
-if [[ -n "$MEDIA_BUCKET" ]] && ! mountpoint -q /mnt/paperless-media; then
-  prefix_opt=""
-  if [[ -n "$MEDIA_SUBPATH" ]]; then
-    prefix_opt="--prefix ${MEDIA_SUBPATH%/}/"
+if [[ -n "$MEDIA_BUCKET" ]]; then
+  if mountpoint -q /mnt/paperless-media; then
+    log "/mnt/paperless-media is already mounted."
+  else
+    log "Preparing clean mountpoint for /mnt/paperless-media..."
+    fusermount -u -z /mnt/paperless-media 2>/dev/null || umount -l /mnt/paperless-media 2>/dev/null || true
+    rm -rf /mnt/paperless-media
+    mkdir -p /mnt/paperless-media
+    chown 1000:1000 /mnt/paperless-media
+    chmod 755 /mnt/paperless-media
+
+    prefix_opt=""
+    if [[ -n "$MEDIA_SUBPATH" ]]; then
+      prefix_opt="--prefix ${MEDIA_SUBPATH%/}/"
+    fi
+    log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via mount-s3 ($prefix_opt)..."
+    mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --allow-overwrite --allow-delete --auto-unmount
+    sleep 1
+    if mountpoint -q /mnt/paperless-media; then
+      log "mount-s3 mount successful and verified on /mnt/paperless-media."
+    else
+      log "Error: Failed to mount /mnt/paperless-media via mount-s3."
+      exit 1
+    fi
   fi
-  log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via mount-s3 ($prefix_opt)..."
-  mkdir -p /mnt/paperless-media
-  rm -rf /mnt/paperless-media/*
-  mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --auto-unmount
-  log "mount-s3 mount successful."
 fi
 
 # 4. Pull any incoming documents from S3 Inbox (excluding 0-byte directory markers)
@@ -78,11 +98,7 @@ if [[ -n "$INBOX_BUCKET" ]]; then
   aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --exclude "" --exclude "*/" --region "$AWS_REGION" 2>/dev/null || true
 fi
 
-# 5. Substitute ORIGIN_VERIFY_SECRET into Nginx config and start Docker Compose
-if [[ -n "$ORIGIN_VERIFY_SECRET" ]] && [[ -f "/opt/paperless/runtime/nginx-activity.conf" ]]; then
-  sed -i "s/\\${ORIGIN_VERIFY_SECRET}/$ORIGIN_VERIFY_SECRET/g" /opt/paperless/runtime/nginx-activity.conf
-fi
-
+# 5. Start Docker Compose services (nginx activity proxy uses envsubst for ORIGIN_VERIFY_SECRET)
 log "Starting Docker Compose services..."
 docker compose -f "$COMPOSE_FILE" up -d
 
@@ -94,7 +110,7 @@ while [[ "$waited" -lt "$max_wait" ]]; do
   # Check if Nginx health endpoint responds and Paperless API responds
   if curl -sf -m 2 http://127.0.0.1:8000/__health >/dev/null 2>&1; then
     status_code=$(curl -s -o /dev/null -w "%{http_code}" -m 2 http://127.0.0.1:8080/api/ || echo 000)
-    if [[ "$status_code" =~ ^(200|401|403)$ ]]; then
+    if [[ "$status_code" =~ ^(200|301|302|401|403)$ ]]; then
       log "Paperless-NGX is ready! (HTTP $status_code after ${waited}s)"
       break
     fi

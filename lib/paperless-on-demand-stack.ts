@@ -45,6 +45,12 @@ export interface PaperlessOnDemandStackProps extends StackProps {
   readonly domainName?: string;
 
   /**
+   * Secret token passed in CloudFront origin custom header and verified by Nginx.
+   * If omitted, a stable SHA-256 hash derived from the account and stack name is used.
+   */
+  readonly originVerifySecret?: string;
+
+  /**
    * Optional existing ACM Certificate ARN in us-east-1 for the custom domain.
    * If omitted but domainName is set, CDK will provision a new ACM certificate with DNS validation.
    */
@@ -133,8 +139,13 @@ export class PaperlessOnDemandStack extends Stack {
       this.inboxBucket = defaultBucket;
     }
 
-    // Generate a secure secret token for CloudFront -> Origin verification
-    const originVerifySecret = crypto.randomBytes(32).toString('hex');
+    // Secure, stable secret token for CloudFront -> Origin verification
+    const originVerifySecret =
+      props.originVerifySecret ||
+      crypto
+        .createHash('sha256')
+        .update(`${this.account}-${this.stackName}-origin-verify-token`)
+        .digest('hex');
 
     // 4. Deploy runtime scripts and docker configuration to S3
     new BucketDeployment(this, 'DeployRuntimeScripts', {

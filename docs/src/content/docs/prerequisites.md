@@ -60,3 +60,4 @@ If using an external registrar or DNS provider:
 - Host/Name: `pod`
 - Target/Value: `<your-distribution-id>.cloudfront.net`
 - Proxy status (Cloudflare): Set to **DNS Only** (gray cloud) to allow CloudFront to terminate TLS directly.
+

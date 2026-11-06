@@ -1,3 +1,4 @@
+import '@aws-sdk/signature-v4a';
 import { EC2Client, DescribeInstancesCommand, StartInstancesCommand } from '@aws-sdk/client-ec2';
 import {
   CloudFrontKeyValueStoreClient,
@@ -9,7 +10,7 @@ import { renderWakeupPage } from './wakeup-page.js';
 import { PAPERLESS_FAVICON_BASE64 } from './favicon-data.js';
 
 const ec2 = new EC2Client({});
-const kvs = new CloudFrontKeyValueStoreClient({});
+const kvs = new CloudFrontKeyValueStoreClient({ region: 'us-east-1' });
 
 const INSTANCE_ID = process.env.INSTANCE_ID || '';
 const KVS_ARN = process.env.KVS_ARN || '';
@@ -39,7 +40,8 @@ export async function getKvsStatus(kvsArn: string): Promise<string> {
   try {
     const res = await kvs.send(new GetKeyCommand({ KvsARN: kvsArn, Key: 'status' }));
     return res.Value || 'unknown';
-  } catch (_err) {
+  } catch (err) {
+    console.error('getKvsStatus failed to get status key:', err);
     return 'stopped';
   }
 }

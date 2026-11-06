@@ -67,3 +67,4 @@ If your existing installation already uses SQLite:
    aws s3 cp /tmp/db-migration.sqlite3 "s3://${S3_BUCKET}/backups/db-latest.sqlite3" --profile paperless
    ```
 4. Start your On-Demand instance. On boot, `boot-sync.sh` will automatically pull `db-latest.sqlite3`, rebuild the Whoosh search index, and mount your media files.
+

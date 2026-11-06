@@ -75,3 +75,4 @@ Because SQLite and the Whoosh search index live on the local EBS volume, Paperle
   aws s3 cp /tmp/paperless-backup.sqlite3 "s3://${BUCKET}/backups/db-$(date +%Y%m%d-%H%M%S).sqlite3"
   ```
 - **Durability**: Even if the EC2 instance or EBS volume were completely terminated, your documents, full database history, metadata, tags, and users are safely preserved in S3.
+

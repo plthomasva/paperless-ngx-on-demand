@@ -167,7 +167,7 @@ while true; do
 
     # Step 5: Flush and unmount media storage cleanly
     log "Unmounting media storage mount..."
-    umount -l /mnt/paperless-media 2>/dev/null || true
+    fusermount -u -z /mnt/paperless-media 2>/dev/null || umount -l /mnt/paperless-media 2>/dev/null || true
 
     # Step 6: Shutdown the instance ($0/hr compute)
     log "Shutting down system..."

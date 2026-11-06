@@ -66,3 +66,4 @@ Once all five conditions pass, the watchdog executes the pre-shutdown backup pro
    ```
 3. Updates the CloudFront KeyValueStore to `"stopped"`.
 4. Issues `aws ec2 stop-instances --instance-ids $(ec2-metadata -i)` to cleanly halt the machine.
+
