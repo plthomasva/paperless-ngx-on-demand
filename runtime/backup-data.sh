@@ -63,3 +63,4 @@ aws s3 cp "$ARCHIVE_FILE" "s3://${INBOX_BUCKET}/backups/paperless-data-latest.ta
 # Clean up temporary backup files
 rm -rf "$BACKUP_TMP_DIR"
 echo "[backup] Backup completed successfully at $(date -u +"%Y%m%d_%H%M%SZ")."
+

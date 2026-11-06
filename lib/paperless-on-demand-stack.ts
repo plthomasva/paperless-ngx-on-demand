@@ -10,10 +10,21 @@ import * as crypto from 'crypto';
 
 export interface PaperlessOnDemandStackProps extends StackProps {
   /**
-   * Name of your existing S3 bucket containing Paperless media documents (originals, archive, thumbnails).
-   * If omitted, a new S3 media bucket will be created.
+   * Name of your existing S3 bucket containing Paperless storage.
+   * If provided, this bucket will be used for both media and drop inbox / backups.
+   */
+  readonly existingBucketName?: string;
+
+  /**
+   * Alias for existingBucketName (for backwards compatibility).
    */
   readonly existingMediaBucketName?: string;
+
+  /**
+   * S3 prefix inside existingBucketName where media/documents reside.
+   * Defaults to 'media' if existing bucket has media/documents/, or empty if mounted at root.
+   */
+  readonly mediaSubpath?: string;
 
   /**
    * Optional custom domain or hostname for Paperless-NGX.
@@ -42,7 +53,7 @@ export interface PaperlessOnDemandStackProps extends StackProps {
 export class PaperlessOnDemandStack extends Stack {
   public readonly vpc: Vpc;
   public readonly mediaBucket: IBucket;
-  public readonly inboxBucket: Bucket;
+  public readonly inboxBucket: IBucket;
   public readonly compute: ComputeInstance;
   public readonly orchestrator: WakeupOrchestrator;
   public readonly edgeRouter: EdgeRouter;
@@ -68,35 +79,34 @@ export class PaperlessOnDemandStack extends Stack {
       service: GatewayVpcEndpointAwsService.S3,
     });
 
-    // 3. S3 Media Bucket (attach existing or create new)
-    if (props.existingMediaBucketName) {
-      this.mediaBucket = Bucket.fromBucketName(
-        this,
-        'ExistingMediaBucket',
-        props.existingMediaBucketName
-      );
+    // 3 & 4. S3 Storage Configuration:
+    // If an existing bucket name is provided, use it for both media and inbox/backups.
+    const existingName = props.existingBucketName || props.existingMediaBucketName;
+    if (existingName) {
+      const existing = Bucket.fromBucketName(this, 'ExistingStorageBucket', existingName);
+      this.mediaBucket = existing;
+      this.inboxBucket = existing;
     } else {
       this.mediaBucket = new Bucket(this, 'MediaBucket', {
         encryption: BucketEncryption.S3_MANAGED,
         blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
         removalPolicy: RemovalPolicy.RETAIN,
       });
-    }
 
-    // 4. S3 Inbox & Backups Bucket
-    this.inboxBucket = new Bucket(this, 'InboxBucket', {
-      encryption: BucketEncryption.S3_MANAGED,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-      versioned: true,
-      lifecycleRules: [
-        {
-          id: 'ExpireOldBackups',
-          prefix: 'backups/paperless-data-2',
-          expiration: Duration.days(60),
-        },
-      ],
-      removalPolicy: RemovalPolicy.RETAIN,
-    });
+      this.inboxBucket = new Bucket(this, 'InboxBucket', {
+        encryption: BucketEncryption.S3_MANAGED,
+        blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        versioned: true,
+        lifecycleRules: [
+          {
+            id: 'ExpireOldBackups',
+            prefix: 'backups/paperless-data-2',
+            expiration: Duration.days(60),
+          },
+        ],
+        removalPolicy: RemovalPolicy.RETAIN,
+      });
+    }
 
     // Generate a secure secret token for CloudFront -> Origin verification
     const originVerifySecret = crypto.randomBytes(32).toString('hex');
@@ -111,6 +121,7 @@ export class PaperlessOnDemandStack extends Stack {
       vpc: this.vpc,
       mediaBucket: this.mediaBucket,
       inboxBucket: this.inboxBucket,
+      mediaSubpath: props.mediaSubpath,
       kvsArn: routingKvs.keyValueStoreArn,
       originVerifySecret,
       cloudfrontPrefixListId: props.cloudfrontPrefixListId,

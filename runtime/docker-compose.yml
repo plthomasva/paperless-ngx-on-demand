@@ -68,3 +68,4 @@ volumes:
 networks:
   paperless-net:
     driver: bridge
+

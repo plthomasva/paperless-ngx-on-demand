@@ -108,3 +108,4 @@ export class WakeupOrchestrator extends Construct {
     stateChangeRule.addTarget(new LambdaFunction(this.wakeupFunction));
   }
 }
+

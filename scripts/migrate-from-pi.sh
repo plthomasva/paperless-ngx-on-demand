@@ -61,3 +61,4 @@ echo "=== Migration archive successfully uploaded to S3! ==="
 echo "When your AWS on-demand EC2 instance boots up for the first time, its"
 echo "boot-sync hook will automatically download and unpack this archive into /mnt/data."
 echo "Your documents in S3 will attach automatically via s3fs on boot."
+

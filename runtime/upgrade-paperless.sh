@@ -76,3 +76,4 @@ else
   log "Rollback completed. Please inspect docker logs for details."
   exit 1
 fi
+

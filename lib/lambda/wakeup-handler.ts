@@ -128,3 +128,4 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
     body: html,
   };
 }
+

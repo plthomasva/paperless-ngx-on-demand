@@ -27,6 +27,7 @@ export interface ComputeInstanceProps {
   readonly vpc: IVpc;
   readonly mediaBucket: IBucket;
   readonly inboxBucket: IBucket;
+  readonly mediaSubpath?: string;
   readonly kvsArn: string;
   readonly originVerifySecret: string;
   readonly cloudfrontPrefixListId?: string;
@@ -113,6 +114,7 @@ export class ComputeInstance extends Construct {
       '# Write environment file',
       'cat << \'EOF\' > /opt/paperless/runtime/.env',
       `MEDIA_BUCKET=${props.mediaBucket.bucketName}`,
+      `MEDIA_SUBPATH=${props.mediaSubpath || 'media'}`,
       `INBOX_BUCKET=${props.inboxBucket.bucketName}`,
       `KVS_NAME=${props.kvsArn}`,
       `ORIGIN_VERIFY_SECRET=${props.originVerifySecret}`,
@@ -186,3 +188,4 @@ export class ComputeInstance extends Construct {
     });
   }
 }
+

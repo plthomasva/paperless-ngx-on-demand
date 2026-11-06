@@ -95,3 +95,21 @@ describe('PaperlessOnDemandStack Architecture Guardrails', () => {
     template.resourceCountIs('AWS::Events::Rule', 1);
   });
 });
+
+describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
+  const app = new cdk.App();
+  const stack = new PaperlessOnDemandStack(app, 'ExistingBucketStack', {
+    env: { account: '123456789012', region: 'us-east-1' },
+    existingBucketName: 'paperless-ngx-storage-1749863935',
+    mediaSubpath: 'media',
+  });
+  const template = Template.fromStack(stack);
+
+  it('reuses the existing S3 bucket: creates ZERO new S3 buckets', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 0);
+  });
+
+  it('attaches S3 ObjectCreated event notification on the existing bucket under consume/', () => {
+    template.resourceCountIs('Custom::S3BucketNotifications', 1);
+  });
+});

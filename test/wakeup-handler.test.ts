@@ -153,3 +153,4 @@ describe('Wakeup Lambda Handler', () => {
     expect(mockKvsSend).toHaveBeenCalled();
   });
 });
+

@@ -7,6 +7,7 @@
 set -euo pipefail
 
 MEDIA_BUCKET="${MEDIA_BUCKET:-}"
+MEDIA_SUBPATH="${MEDIA_SUBPATH:-media}"
 INBOX_BUCKET="${INBOX_BUCKET:-}"
 KVS_NAME="${KVS_NAME:-}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
@@ -40,8 +41,12 @@ fi
 
 # 3. Mount S3 Media Bucket via s3fs if not already mounted
 if [[ -n "$MEDIA_BUCKET" ]] && ! mountpoint -q /mnt/paperless-media; then
-  log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via s3fs..."
-  s3fs "$MEDIA_BUCKET" /mnt/paperless-media \
+  s3_target="$MEDIA_BUCKET"
+  if [[ -n "$MEDIA_SUBPATH" ]]; then
+    s3_target="${MEDIA_BUCKET}:/${MEDIA_SUBPATH}"
+  fi
+  log "Mounting S3 target '$s3_target' at /mnt/paperless-media via s3fs..."
+  s3fs "$s3_target" /mnt/paperless-media \
     -o iam_role=auto \
     -o endpoint="$AWS_REGION" \
     -o use_cache=/var/cache/s3fs \
@@ -129,3 +134,4 @@ fi
 touch /tmp/access.log
 
 log "Paperless-NGX boot-sync finished successfully."
+
