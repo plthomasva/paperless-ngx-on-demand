@@ -1,7 +1,7 @@
 import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc, SubnetType, GatewayVpcEndpointAwsService } from 'aws-cdk-lib/aws-ec2';
-import { Bucket, BlockPublicAccess, BucketEncryption, IBucket } from 'aws-cdk-lib/aws-s3';
+import { Bucket, BlockPublicAccess, BucketEncryption, IBucket, CfnBucket } from 'aws-cdk-lib/aws-s3';
 import { KeyValueStore } from 'aws-cdk-lib/aws-cloudfront';
 import { ComputeInstance } from './constructs/compute-instance.js';
 import { EdgeRouter } from './constructs/edge-router.js';
@@ -88,14 +88,15 @@ export class PaperlessOnDemandStack extends Stack {
 
     // 3. S3 Storage Configuration:
     // If an existing bucket name is provided, use it.
-    // If starting fresh, generate a conflict-free account-and-region namespaced bucket name.
+    // If starting fresh, provision an S3 Account Regional Namespace bucket (-an)
+    // with BucketNamespace="account-regional" for guaranteed zero naming collisions.
     const existingName = props.existingBucketName || props.existingMediaBucketName;
     if (existingName) {
       const existing = Bucket.fromBucketName(this, 'ExistingStorageBucket', existingName);
       this.mediaBucket = existing;
       this.inboxBucket = existing;
     } else {
-      const defaultBucketName = `paperless-storage-${this.account}-${this.region}`;
+      const defaultBucketName = `paperless-storage-${this.account}-${this.region}-an`;
       const defaultBucket = new Bucket(this, 'StorageBucket', {
         bucketName: defaultBucketName,
         encryption: BucketEncryption.S3_MANAGED,
@@ -110,6 +111,11 @@ export class PaperlessOnDemandStack extends Stack {
         ],
         removalPolicy: RemovalPolicy.RETAIN,
       });
+
+      // Enable official AWS S3 Account Regional Namespace feature
+      const cfnBucket = defaultBucket.node.defaultChild as CfnBucket;
+      cfnBucket.bucketNamespace = 'account-regional';
+
       this.mediaBucket = defaultBucket;
       this.inboxBucket = defaultBucket;
     }

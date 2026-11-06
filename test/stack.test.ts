@@ -70,7 +70,8 @@ describe('PaperlessOnDemandStack Architecture Guardrails', () => {
 
   it('provisions conflict-free account-and-region namespaced S3 bucket with versioning', () => {
     template.hasResourceProperties('AWS::S3::Bucket', {
-      BucketName: 'paperless-storage-123456789012-us-east-1',
+      BucketName: 'paperless-storage-123456789012-us-east-1-an',
+      BucketNamespace: 'account-regional',
       VersioningConfiguration: {
         Status: 'Enabled',
       },

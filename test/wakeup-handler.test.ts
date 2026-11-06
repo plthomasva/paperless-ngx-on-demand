@@ -21,6 +21,7 @@ vi.mock('@aws-sdk/client-cloudfront-keyvaluestore', () => {
     })),
     DescribeKeyValueStoreCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'DescribeKvs' })),
     PutKeyCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'PutKey' })),
+    GetKeyCommand: vi.fn().mockImplementation((input) => ({ input, _type: 'GetKey' })),
   };
 });
 
@@ -44,6 +45,7 @@ describe('Wakeup Lambda Handler', () => {
         },
       ],
     });
+    mockKvsSend.mockResolvedValueOnce({ Value: 'running' });
 
     const { handler } = await import('../lib/lambda/wakeup-handler.js');
 

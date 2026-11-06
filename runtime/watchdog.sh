@@ -158,9 +158,9 @@ while true; do
     log "Stopping Paperless-NGX and Redis containers..."
     docker compose -f "$COMPOSE_FILE" stop -t 60 || true
 
-    # Step 5: Flush and unmount s3fs cleanly
-    log "Unmounting s3fs media mount..."
-    umount -l /mnt/paperless-media || true
+    # Step 5: Flush and unmount media storage cleanly
+    log "Unmounting media storage mount..."
+    umount -l /mnt/paperless-media 2>/dev/null || true
 
     # Step 6: Shutdown the instance ($0/hr compute)
     log "Shutting down system..."

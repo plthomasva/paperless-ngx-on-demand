@@ -7,6 +7,7 @@ import {
   CloudFrontKeyValueStoreClient,
   DescribeKeyValueStoreCommand,
   PutKeyCommand,
+  GetKeyCommand,
 } from '@aws-sdk/client-cloudfront-keyvaluestore';
 import { renderWakeupPage } from './wakeup-page.js';
 
@@ -20,6 +21,16 @@ interface LambdaResponse {
   statusCode: number;
   headers?: Record<string, string>;
   body: string;
+}
+
+export async function getKvsStatus(kvsArn: string): Promise<string> {
+  if (!kvsArn) return 'unknown';
+  try {
+    const res = await kvs.send(new GetKeyCommand({ KvsARN: kvsArn, Key: 'status' }));
+    return res.Value || 'unknown';
+  } catch (err: any) {
+    return 'stopped';
+  }
 }
 
 export async function updateKvsKey(kvsArn: string, key: string, value: string): Promise<void> {
@@ -100,7 +111,22 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
 
   // Endpoint: /__wakeup/status JSON poll
   if (requestPath.startsWith('/__wakeup/status')) {
-    const { state, publicHostname } = await getInstanceState(INSTANCE_ID);
+    const { state: ec2State, publicHostname } = await getInstanceState(INSTANCE_ID);
+    const kvsStatus = await getKvsStatus(KVS_ARN);
+
+    // The application is ONLY considered "running" when the EC2 boot-sync hook
+    // has verified that Paperless is healthy on port 8000 AND updated KVS.
+    let effectiveState = 'stopped';
+    if (kvsStatus === 'running') {
+      effectiveState = 'running';
+    } else if (ec2State === 'running') {
+      effectiveState = 'booting';
+    } else if (ec2State === 'pending') {
+      effectiveState = 'starting';
+    } else {
+      effectiveState = ec2State;
+    }
+
     return {
       statusCode: 200,
       headers: {
@@ -108,7 +134,9 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
       body: JSON.stringify({
-        state,
+        state: effectiveState,
+        ec2State,
+        kvsStatus,
         publicHostname: publicHostname || null,
         timestamp: new Date().toISOString(),
       }),

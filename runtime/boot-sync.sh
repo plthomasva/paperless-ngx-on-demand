@@ -45,23 +45,16 @@ if [[ ! -f "/mnt/data/db.sqlite3" ]] && [[ -n "$INBOX_BUCKET" ]]; then
   fi
 fi
 
-# 3. Mount S3 Media Bucket via s3fs if not already mounted
+# 3. Mount S3 Media Bucket via mount-s3 if not already mounted
 if [[ -n "$MEDIA_BUCKET" ]] && ! mountpoint -q /mnt/paperless-media; then
-  s3_target="$MEDIA_BUCKET"
+  prefix_opt=""
   if [[ -n "$MEDIA_SUBPATH" ]]; then
-    s3_target="${MEDIA_BUCKET}:/${MEDIA_SUBPATH}"
+    prefix_opt="--prefix ${MEDIA_SUBPATH%/}/"
   fi
-  log "Mounting S3 target '$s3_target' at /mnt/paperless-media via s3fs..."
-  s3fs "$s3_target" /mnt/paperless-media \
-    -o iam_role=auto \
-    -o endpoint="$AWS_REGION" \
-    -o use_cache=/var/cache/s3fs \
-    -o max_stat_cache_size=100000 \
-    -o stat_cache_expire=86400 \
-    -o allow_other \
-    -o uid=1000,gid=1000 \
-    -o multireq_max=5
-  log "s3fs mount successful."
+  log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via mount-s3 ($prefix_opt)..."
+  mkdir -p /mnt/paperless-media
+  mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --auto-unmount
+  log "mount-s3 mount successful."
 fi
 
 # 4. Pull any incoming documents from S3 Inbox

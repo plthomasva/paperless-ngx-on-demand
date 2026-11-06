@@ -122,9 +122,11 @@ export function renderWakeupPage(requestedPath: string): string {
             if (data.state === 'running') {
               statusText.textContent = 'Server ready! Connecting...';
               // Reload page once server is warm
-              globalThis.location.replace('${requestedPath}');
+              setTimeout(() => {
+                globalThis.location.replace('${requestedPath}');
+              }, 1200);
               return;
-            } else if (data.state === 'starting' || data.state === 'pending') {
+            } else if (data.state === 'starting' || data.state === 'booting' || data.state === 'pending') {
               statusText.textContent = 'Booting containers and mounting storage (' + attempts * 2 + 's)...';
             }
           }
