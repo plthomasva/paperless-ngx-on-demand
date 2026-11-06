@@ -33,10 +33,10 @@ async function main() {
   }
   args.push(`aws://${account}/${region}`);
 
-  const proc = spawn('npx', args, {
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const proc = spawn(npxCmd, args, {
     cwd: rootDir,
     stdio: 'inherit',
-    shell: true,
     env: {
       ...process.env,
       AWS_PROFILE: profile,

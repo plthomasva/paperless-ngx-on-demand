@@ -10,12 +10,13 @@ const rootDir = path.resolve(__dirname, '..');
 const configPath = path.join(rootDir, 'paperless.config.json');
 
 async function main() {
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
   if (!fs.existsSync(configPath)) {
     console.log('No local configuration found. Running setup wizard first...\n');
-    const setupProc = spawn('npx', ['tsx', 'scripts/setup.ts'], {
+    const setupProc = spawn(npxCmd, ['tsx', 'scripts/setup.ts'], {
       cwd: rootDir,
       stdio: 'inherit',
-      shell: true,
     });
     await new Promise((resolve, reject) => {
       setupProc.on('close', (code) =>
@@ -37,10 +38,9 @@ async function main() {
     cdkArgs.push('--profile', profile);
   }
 
-  const deployProc = spawn('npx', cdkArgs, {
+  const deployProc = spawn(npxCmd, cdkArgs, {
     cwd: rootDir,
     stdio: 'inherit',
-    shell: true,
     env: {
       ...process.env,
       AWS_PROFILE: profile,

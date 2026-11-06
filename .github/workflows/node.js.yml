@@ -90,6 +90,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+      - name: Diagnostics for SonarCloud Issues
+        if: failure() && matrix.node-version == '24.x' && github.actor != 'dependabot[bot]'
+        run: |
+          echo "Fetching any open issues from SonarCloud..."
+          curl -s -u "${{ secrets.SONAR_TOKEN }}:" "https://sonarcloud.io/api/issues/search?componentKeys=${{ env.SONAR_PROJECT_KEY }}" | jq '.issues[] | {severity, type, rule, component, message, line}' || true
+
   ci-success:
     name: CI Success
     if: always()

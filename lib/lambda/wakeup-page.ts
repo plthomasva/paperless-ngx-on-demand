@@ -3,6 +3,15 @@
  * displayed to users while Paperless-NGX is booting up.
  */
 export function renderWakeupPage(requestedPath: string): string {
+  // Safely encode and sanitize requested path to prevent script injection / XSS breakout
+  const safeTarget = JSON.stringify(
+    requestedPath.startsWith('/') && !requestedPath.includes('\n') && !requestedPath.includes('\r')
+      ? requestedPath
+      : '/'
+  )
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -125,7 +134,7 @@ export function renderWakeupPage(requestedPath: string): string {
               statusText.textContent = 'Server ready! Connecting...';
               // Reload page once server is warm
               setTimeout(() => {
-                globalThis.location.replace('${requestedPath}');
+                globalThis.location.replace(${safeTarget});
               }, 1200);
               return;
             } else if (data.state === 'starting' || data.state === 'booting' || data.state === 'pending') {
