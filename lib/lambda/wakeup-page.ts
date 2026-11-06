@@ -28,6 +28,7 @@ export function renderWakeupPage(requestedPath: string): string {
       --primary: #38bdf8;
       --accent: #0ea5e9;
       --border: #334155;
+      --success: #22c55e;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -78,11 +79,13 @@ export function renderWakeupPage(requestedPath: string): string {
     }
     .progress-bar {
       height: 100%;
-      width: 35%;
+      width: 5%;
       background: linear-gradient(90deg, var(--accent), var(--primary));
       border-radius: 4px;
-      position: absolute;
-      animation: indeterminate 2s infinite ease-in-out;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+    .progress-bar.ready {
+      background: var(--success);
     }
     .status-text {
       font-size: 0.85rem;
@@ -93,10 +96,6 @@ export function renderWakeupPage(requestedPath: string): string {
     @keyframes pulse {
       0%, 100% { transform: scale(1); opacity: 0.9; }
       50% { transform: scale(1.08); opacity: 1; }
-    }
-    @keyframes indeterminate {
-      0% { left: -35%; }
-      100% { left: 100%; }
     }
   </style>
 </head>
@@ -110,10 +109,10 @@ export function renderWakeupPage(requestedPath: string): string {
       <polyline points="10 9 9 9 8 9"></polyline>
     </svg>
     <h1>Waking Up Paperless-NGX</h1>
-    <p>Your on-demand instance was asleep to save cost. The server is spinning up now and will automatically open once ready (~15–25 seconds).</p>
+    <p>Your on-demand instance was asleep to save cost. The server is spinning up now and will automatically open once ready (~45–60 seconds).</p>
     
     <div class="progress-bar-container">
-      <div class="progress-bar"></div>
+      <div class="progress-bar" id="progress-bar"></div>
     </div>
     <div class="status-text" id="status-text">Starting server instance...</div>
   </div>
@@ -121,7 +120,20 @@ export function renderWakeupPage(requestedPath: string): string {
   <script>
     (function() {
       const statusText = document.getElementById('status-text');
+      const progressBar = document.getElementById('progress-bar');
+      const startTime = Date.now();
       let attempts = 0;
+
+      function updateProgress() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        // Estimate progress toward ~55s target, capping at 92% until running
+        const pct = Math.min(92, Math.max(5, Math.floor((elapsed / 55) * 100)));
+        if (progressBar && !progressBar.classList.contains('ready')) {
+          progressBar.style.width = pct + '%';
+        }
+      }
+
+      const timerInterval = setInterval(updateProgress, 1000);
 
       async function checkStatus() {
         attempts++;
@@ -130,21 +142,30 @@ export function renderWakeupPage(requestedPath: string): string {
           const res = await fetch('/__wakeup/status?t=' + Date.now() + actionParam);
           if (res.ok) {
             const data = await res.json();
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
             if (data.state === 'running') {
+              clearInterval(timerInterval);
+              if (progressBar) {
+                progressBar.classList.add('ready');
+                progressBar.style.width = '100%';
+              }
               statusText.textContent = 'Server ready! Connecting...';
-              // Reload page once server is warm
               setTimeout(() => {
                 globalThis.location.replace(${safeTarget});
-              }, 1200);
+              }, 1000);
               return;
-            } else if (data.state === 'starting' || data.state === 'booting' || data.state === 'pending') {
-              statusText.textContent = 'Booting containers and mounting storage (' + attempts * 2 + 's)...';
+            } else if (data.state === 'starting' || data.state === 'pending') {
+              statusText.textContent = 'Spinning up cloud server (' + elapsed + 's)...';
+            } else if (data.state === 'booting') {
+              statusText.textContent = 'Mounting S3 storage & starting containers (' + elapsed + 's)...';
+            } else {
+              statusText.textContent = 'Waking up server (' + elapsed + 's)...';
             }
           }
         } catch (e) {
           // Ignore transient network errors while server boots
         }
-        setTimeout(checkStatus, 2500);
+        setTimeout(checkStatus, 2000);
       }
 
       // Immediately trigger wakeup via JS and start polling

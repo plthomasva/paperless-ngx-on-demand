@@ -56,7 +56,7 @@ For a personal home archivist scanning a handful of utility bills, tax receipts,
    CloudFront Function inspects the KVS at edge (sub-millisecond). Seeing `"stopped"`, it dynamically routes the HTTP request to the Wakeup Lambda function.
 3. **Instance Spin-Up**:
    The Wakeup Lambda issues an EC2 `StartInstances` API call and immediately responds with a fast, responsive HTML splash screen that polls the Lambda status every 3 seconds.
-4. **Boot & Sync (< 40 seconds)**:
+4. **Boot & Sync (~45–60 seconds)**:
    The instance boots Amazon Linux 2023. The `boot-sync.sh` systemd service pulls the latest SQLite database backup from S3, mounts the S3 media bucket via `s3fs`, and launches Paperless-NGX and Redis via Docker Compose.
 5. **Edge Switchover**:
    As soon as health checks succeed on port 8000, the instance updates the CloudFront KVS to `"running"`. Subsequent web requests route directly to EC2 with zero Lambda invocation latency.

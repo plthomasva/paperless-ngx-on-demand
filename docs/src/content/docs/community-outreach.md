@@ -41,7 +41,7 @@ Documentation: https://plthomasva.github.io/paperless-ngx-on-demand/
    When compute is stopped, requests route to a Lambda Function URL that renders a dark-mode splash screen. Browser JavaScript requests status from the wakeup endpoint, which issues an EC2 `StartInstances` call. (Known crawler bots and scanner probes are blocked with 403/404 so they don't wake your instance).
 
 3. **Fast Graviton Compute**:
-   The backend runs on an ARM64 `t4g.medium` instance. On boot, `boot-sync.sh` mounts your S3 media library via AWS `mount-s3`, verifies Paperless-NGX on port 8000, updates CloudFront KVS to `running`, and writes the dynamic origin IP. The browser splash screen immediately transitions to the Paperless login screen (~15–25s total wake time).
+   The backend runs on an ARM64 `t4g.medium` instance. On boot, `boot-sync.sh` mounts your S3 media library via AWS `mount-s3`, verifies Paperless-NGX on port 8000, updates CloudFront KVS to `running`, and writes the dynamic origin IP. The browser splash screen immediately transitions to the Paperless login screen (~45–60s total wake time from stopped).
 
 4. **Multi-Layer Task-Draining Watchdog**:
    A background daemon monitors UI activity, Redis Celery queues, `/api/tasks/` endpoints, and OCR/Tesseract processes. It ensures the instance **never** halts while indexing or processing documents. Once idle for 15 minutes with all queues drained, it executes an online SQLite `.backup` to S3 and calls `shutdown -h now`.
@@ -106,7 +106,7 @@ Existing "serverless" approaches often struggle with Paperless-NGX because it re
 
 ### Architecture Highlights:
 - **CloudFront + KeyValueStore Router**: Global edge distribution routes web traffic. When compute is cold, users receive an instant dark-mode splash page (~50ms) while the instance boots.
-- **Fast Graviton Instance (`t4g.medium`)**: Boots in ~15–25 seconds. On boot, `mount-s3` mounts the S3 media library, starts Docker Compose, verifies Paperless health on port 8000, and updates KVS to route traffic directly to the instance.
+- **Fast Graviton Instance (`t4g.medium`)**: Boots in ~45–60 seconds (hardware start + Paperless container/worker initialization). On boot, `mount-s3` mounts the S3 media library, starts Docker Compose, verifies Paperless health on port 8000, and updates KVS to route traffic directly to the instance.
 - **Task-Draining Watchdog**: The instance only shuts down when:
   1. No web requests for 15 minutes (`/tmp/access.log`).
   2. Redis Celery queue is empty (`LLEN celery == 0`).
@@ -140,7 +140,7 @@ If you're still looking for a cost-effective way to host Paperless-NGX in the cl
 
 It uses AWS CDK to deploy an automated scale-to-zero architecture:
 - When idle, compute scales to $0/hr. Total AWS monthly cost is ~$2.04/mo (mostly 15 GB EBS storage and S3 storage).
-- When you visit your URL, CloudFront shows an instant splash screen and wakes an ARM64 EC2 instance (~15–25s wake time).
+- When you visit your URL, CloudFront shows an instant splash screen and wakes an ARM64 EC2 instance (~45–60s total wake time).
 - A task-draining watchdog ensures the instance never sleeps while OCR, Celery queues, or consumption jobs are running, and backs up SQLite to S3 before halting.
 - S3 bucket notifications also trigger headless wake-up if you drop files into the inbox from mobile shortcuts or email forwarders.
 
