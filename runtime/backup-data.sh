@@ -6,6 +6,13 @@
 
 set -euo pipefail
 
+if [[ -f "/opt/paperless/runtime/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source /opt/paperless/runtime/.env
+  set +a
+fi
+
 DATA_DIR="${DATA_DIR:-/mnt/data}"
 BACKUP_TMP_DIR="/tmp/paperless-backup"
 INBOX_BUCKET="${INBOX_BUCKET:-}"

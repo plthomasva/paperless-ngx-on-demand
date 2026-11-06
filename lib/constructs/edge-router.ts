@@ -9,6 +9,7 @@ import {
   AllowedMethods,
   CachePolicy,
   OriginRequestPolicy,
+  OriginProtocolPolicy,
   KeyValueStore,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
@@ -58,11 +59,6 @@ async function handler(event) {
           sslProtocols: ['TLSv1.2']
         }
       });
-
-      // Preserve viewer Host header as x-forwarded-host
-      if (request.headers['host']) {
-        request.headers['x-forwarded-host'] = { value: request.headers['host'].value };
-      }
     }
   } catch (err) {
     // On KVS lookup failure or cold state, route to default origin (Lambda splash screen)
@@ -83,6 +79,8 @@ async function handler(event) {
     const wakeupDomain = Fn.select(2, Fn.split('/', props.wakeupFunctionUrl.url));
 
     const defaultOrigin = new HttpOrigin(wakeupDomain, {
+      protocolPolicy: OriginProtocolPolicy.MATCH_VIEWER,
+      httpPort: 8000,
       customHeaders: {
         'x-origin-verify': props.originVerifySecret,
       },

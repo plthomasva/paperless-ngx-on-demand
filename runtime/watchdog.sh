@@ -13,6 +13,13 @@
 
 set -euo pipefail
 
+if [[ -f "/opt/paperless/runtime/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source /opt/paperless/runtime/.env
+  set +a
+fi
+
 IDLE_TIMEOUT_SECONDS="${IDLE_TIMEOUT_SECONDS:-900}" # 15 minutes default
 CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-60}"
 CONSECUTIVE_IDLE_REQUIRED="${CONSECUTIVE_IDLE_REQUIRED:-2}"

@@ -6,11 +6,19 @@
 
 set -euo pipefail
 
+if [[ -f "/opt/paperless/runtime/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source /opt/paperless/runtime/.env
+  set +a
+fi
+
 MEDIA_BUCKET="${MEDIA_BUCKET:-}"
 MEDIA_SUBPATH="${MEDIA_SUBPATH:-media}"
 INBOX_BUCKET="${INBOX_BUCKET:-}"
 KVS_NAME="${KVS_NAME:-}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
+ORIGIN_VERIFY_SECRET="${ORIGIN_VERIFY_SECRET:-}"
 COMPOSE_FILE="/opt/paperless/runtime/docker-compose.yml"
 
 log() {
@@ -53,6 +61,7 @@ if [[ -n "$MEDIA_BUCKET" ]] && ! mountpoint -q /mnt/paperless-media; then
   fi
   log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via mount-s3 ($prefix_opt)..."
   mkdir -p /mnt/paperless-media
+  rm -rf /mnt/paperless-media/*
   mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --auto-unmount
   log "mount-s3 mount successful."
 fi
@@ -63,7 +72,11 @@ if [[ -n "$INBOX_BUCKET" ]]; then
   aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --region "$AWS_REGION" 2>/dev/null || true
 fi
 
-# 5. Start Docker Compose services
+# 5. Substitute ORIGIN_VERIFY_SECRET into Nginx config and start Docker Compose
+if [[ -n "$ORIGIN_VERIFY_SECRET" ]] && [[ -f "/opt/paperless/runtime/nginx-activity.conf" ]]; then
+  sed -i "s/\\${ORIGIN_VERIFY_SECRET}/$ORIGIN_VERIFY_SECRET/g" /opt/paperless/runtime/nginx-activity.conf
+fi
+
 log "Starting Docker Compose services..."
 docker compose -f "$COMPOSE_FILE" up -d
 
@@ -91,10 +104,11 @@ fi
 # 7. If initial data.json was found, import it into SQLite and rebuild search index
 if [[ "$PENDING_LOADDATA" == "true" ]]; then
   log "Initial import: loading data.json into SQLite via loaddata..."
-  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py loaddata /tmp/data.json || log "Warning: loaddata non-zero exit."
+  cp -f /tmp/data.json /mnt/export/data.json
+  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py loaddata --ignorenonexistent /usr/src/paperless/export/data.json || log "Warning: loaddata non-zero exit."
   log "Rebuilding search index for imported documents..."
-  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_redo_search_index || log "Warning: document_redo_search_index non-zero exit."
-  rm -f /tmp/data.json
+  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_index reindex || log "Warning: document_index reindex non-zero exit."
+  rm -f /tmp/data.json /mnt/export/data.json
   log "Initial database import complete! Creating first SQLite backup in S3..."
   /opt/paperless/runtime/backup-data.sh || log "Warning: Initial backup non-zero exit."
 fi
