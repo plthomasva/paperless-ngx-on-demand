@@ -2,11 +2,17 @@ import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-l
 import { Construct } from 'constructs';
 import { Vpc, SubnetType, GatewayVpcEndpointAwsService } from 'aws-cdk-lib/aws-ec2';
 import { Bucket, BlockPublicAccess, BucketEncryption, IBucket, CfnBucket } from 'aws-cdk-lib/aws-s3';
+import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { KeyValueStore } from 'aws-cdk-lib/aws-cloudfront';
 import { ComputeInstance } from './constructs/compute-instance.js';
 import { EdgeRouter } from './constructs/edge-router.js';
 import { WakeupOrchestrator } from './constructs/wakeup-orchestrator.js';
 import * as crypto from 'crypto';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface PaperlessOnDemandStackProps extends StackProps {
   /**
@@ -28,7 +34,7 @@ export interface PaperlessOnDemandStackProps extends StackProps {
   readonly mediaSubpath?: string;
 
   /**
-   * Optional custom domain or hostname for Paperless-NGX (e.g. pod.painless-computing.com).
+   * Optional custom domain or hostname for Paperless-NGX (e.g. paperless.example.com).
    */
   readonly domainName?: string;
 
@@ -123,12 +129,20 @@ export class PaperlessOnDemandStack extends Stack {
     // Generate a secure secret token for CloudFront -> Origin verification
     const originVerifySecret = crypto.randomBytes(32).toString('hex');
 
-    // 4. CloudFront KeyValueStore for dynamic edge routing
+    // 4. Deploy runtime scripts and docker configuration to S3
+    new BucketDeployment(this, 'DeployRuntimeScripts', {
+      sources: [Source.asset(path.resolve(__dirname, '../runtime'))],
+      destinationBucket: this.mediaBucket,
+      destinationKeyPrefix: 'runtime',
+      prune: false,
+    });
+
+    // 5. CloudFront KeyValueStore for dynamic edge routing
     const routingKvs = new KeyValueStore(this, 'RoutingKvs', {
       comment: 'Paperless-NGX dynamic edge routing state',
     });
 
-    // 5. Compute Instance (EC2 t4g.medium Graviton in public subnet with CloudFront-only SG)
+    // 6. Compute Instance (EC2 t4g.medium Graviton in public subnet with CloudFront-only SG)
     this.compute = new ComputeInstance(this, 'Compute', {
       vpc: this.vpc,
       mediaBucket: this.mediaBucket,

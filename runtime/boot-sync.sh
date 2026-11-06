@@ -27,6 +27,12 @@ log() {
 
 log "Starting Paperless-NGX boot initialization..."
 
+# Sync latest runtime scripts and configuration from S3 if available
+if [[ -n "$MEDIA_BUCKET" ]]; then
+  aws s3 sync "s3://${MEDIA_BUCKET}/runtime/" "/opt/paperless/runtime/" --region "$AWS_REGION" 2>/dev/null || true
+  chmod +x /opt/paperless/runtime/*.sh 2>/dev/null || true
+fi
+
 # 1. Create required directories
 mkdir -p /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless /var/cache/s3fs
 chmod 777 /tmp/paperless

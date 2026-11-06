@@ -96,15 +96,19 @@ describe('PaperlessOnDemandStack Architecture Guardrails', () => {
     template.resourceCountIs('AWS::Lambda::Url', 1);
     template.resourceCountIs('AWS::Events::Rule', 1);
   });
+
+  it('provisions S3 bucket deployment to sync runtime scripts automatically on deploy', () => {
+    template.resourceCountIs('Custom::CDKBucketDeployment', 1);
+  });
 });
 
 describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
   const app = new cdk.App();
   const stack = new PaperlessOnDemandStack(app, 'ExistingBucketStack', {
     env: { account: '123456789012', region: 'us-east-1' },
-    existingBucketName: 'paperless-ngx-storage-1749863935',
+    existingBucketName: 'existing-paperless-storage-bucket',
     mediaSubpath: 'media',
-    domainName: 'pod.painless-computing.com',
+    domainName: 'paperless.example.com',
   });
   const template = Template.fromStack(stack);
 
@@ -119,12 +123,12 @@ describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
   it('provisions ACM certificate and attaches custom domain alias to CloudFront', () => {
     template.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     template.hasResourceProperties('AWS::CertificateManager::Certificate', {
-      DomainName: 'pod.painless-computing.com',
+      DomainName: 'paperless.example.com',
       ValidationMethod: 'DNS',
     });
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
-        Aliases: ['pod.painless-computing.com'],
+        Aliases: ['paperless.example.com'],
       }),
     });
   });

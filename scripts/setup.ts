@@ -76,7 +76,7 @@ async function main() {
 
   // 4. Custom Domain & TLS Certificate
   console.log('\n--- Domain & TLS Configuration ---');
-  const domainName = await prompt('Custom domain (e.g. pod.painless-computing.com, or leave empty for CloudFront URL)', existingConfig.domainName || '');
+  const domainName = await prompt('Custom domain (e.g. paperless.example.com, or leave empty for CloudFront URL)', existingConfig.domainName || '');
 
   let certificateArn = '';
   if (domainName) {
