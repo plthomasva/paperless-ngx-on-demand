@@ -58,12 +58,14 @@ update_kvs_status() {
 
 pull_s3_inbox() {
   if [[ -n "$INBOX_BUCKET" ]]; then
-    # Check if there are any objects under s3://${INBOX_BUCKET}/consume/
+    # Check if there are any non-zero byte files under s3://${INBOX_BUCKET}/consume/
+    # (ignores 0-byte directory markers created by S3 console or tools)
     local s3_count
-    s3_count=$(aws s3 ls "s3://${INBOX_BUCKET}/consume/" --region "$AWS_REGION" 2>/dev/null | wc -l || echo 0)
-    if [[ "$s3_count" -gt 0 ]]; then
+    s3_count=$(aws s3 ls "s3://${INBOX_BUCKET}/consume/" --region "$AWS_REGION" 2>/dev/null | awk '$3 > 0 {print $4}' | wc -l || echo 0)
+    s3_count=$(echo "$s3_count" | tr -dc '0-9')
+    if [[ -n "$s3_count" ]] && [[ "$s3_count" -gt 0 ]]; then
       log "Found $s3_count file(s) in S3 Inbox. Moving to /mnt/consume/..."
-      aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --region "$AWS_REGION" 2>/dev/null || true
+      aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --exclude "" --exclude "*/" --region "$AWS_REGION" 2>/dev/null || true
       # Reset idle activity since new files just arrived
       touch "$ACCESS_LOG"
       return 0

@@ -72,10 +72,10 @@ if [[ -n "$MEDIA_BUCKET" ]] && ! mountpoint -q /mnt/paperless-media; then
   log "mount-s3 mount successful."
 fi
 
-# 4. Pull any incoming documents from S3 Inbox
+# 4. Pull any incoming documents from S3 Inbox (excluding 0-byte directory markers)
 if [[ -n "$INBOX_BUCKET" ]]; then
   log "Checking for pending documents in s3://${INBOX_BUCKET}/consume/..."
-  aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --region "$AWS_REGION" 2>/dev/null || true
+  aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --exclude "" --exclude "*/" --region "$AWS_REGION" 2>/dev/null || true
 fi
 
 # 5. Substitute ORIGIN_VERIFY_SECRET into Nginx config and start Docker Compose
