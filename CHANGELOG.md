@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.0...paperless-ngx-on-demand-v1.1.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ci:** correct job-level conditional syntax in release workflow ([f619824](https://github.com/plthomasva/paperless-ngx-on-demand/commit/f6198244e79286ee996c79f789b18c034a30e6f1))
+* **ci:** support immutable repository ID in OIDC trust policy ([fb2d2a3](https://github.com/plthomasva/paperless-ngx-on-demand/commit/fb2d2a37c1fcb364b82baccf30cdcdc278c9275b))
+* **wakeup:** resolve SigV4a signing, mount-s3 FUSE options, and origin secret synchronization ([36edfc3](https://github.com/plthomasva/paperless-ngx-on-demand/commit/36edfc3d59ea0c8557cefb44dc1262d15e5a01c9))
+
 ## [1.1.0](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.0.0...paperless-ngx-on-demand-v1.1.0) (2026-11-06)
 
 
