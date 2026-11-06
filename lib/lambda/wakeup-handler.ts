@@ -10,6 +10,7 @@ import {
   GetKeyCommand,
 } from '@aws-sdk/client-cloudfront-keyvaluestore';
 import { renderWakeupPage } from './wakeup-page.js';
+import { PAPERLESS_FAVICON_BASE64 } from './favicon-data.js';
 
 const ec2 = new EC2Client({});
 const kvs = new CloudFrontKeyValueStoreClient({});
@@ -17,9 +18,14 @@ const kvs = new CloudFrontKeyValueStoreClient({});
 const INSTANCE_ID = process.env.INSTANCE_ID || '';
 const KVS_ARN = process.env.KVS_ARN || '';
 
+const BOT_UA_REGEX = /(bot|crawler|spider|slurp|bingpreview|headless|ahrefs|semrush|petalbot|bytespider|yandex)/i;
+const SCANNER_PROBE_REGEX = /\.(php|asp|aspx|jsp|cgi|env|git|yml|yaml|bak|sql|tar|gz|zip)($|\?)/i;
+const SCANNER_PATH_PREFIXES = ['/wp-login', '/wp-admin', '/admin', '/xmlrpc.php', '/phpmyadmin', '/boaform', '/setup.cgi'];
+
 interface LambdaResponse {
   statusCode: number;
   headers?: Record<string, string>;
+  isBase64Encoded?: boolean;
   body: string;
 }
 
@@ -108,9 +114,55 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
 
   // 3. HTTP Request via Function URL or API Gateway
   const requestPath = event?.rawPath || event?.path || '/';
+  const userAgent = event?.headers?.['user-agent'] || event?.headers?.['User-Agent'] || '';
+
+  // 3a. robots.txt - Return Disallow without waking compute
+  if (requestPath === '/robots.txt') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+      body: "User-agent: *\nDisallow: /\n",
+    };
+  }
+
+  // 3b. favicon.ico - Return official Paperless icon without waking compute
+  if (requestPath === '/favicon.ico') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'image/x-icon',
+        'Cache-Control': 'public, max-age=604800',
+      },
+      isBase64Encoded: true,
+      body: PAPERLESS_FAVICON_BASE64,
+    };
+  }
+
+  // 3c. Scanner / vulnerability probe paths - Return 404 without waking compute
+  if (SCANNER_PROBE_REGEX.test(requestPath) || SCANNER_PATH_PREFIXES.some((p) => requestPath.startsWith(p))) {
+    return {
+      statusCode: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+      body: 'Not Found\n',
+    };
+  }
 
   // Endpoint: /__wakeup/status JSON poll
   if (requestPath.startsWith('/__wakeup/status')) {
+    const rawQuery = event?.rawQueryString || '';
+    const shouldWake = rawQuery.includes('action=wake') || event?.requestContext?.http?.method === 'POST';
+
+    // If JavaScript initiated the wake action and is not a known crawler bot, trigger wake
+    if (shouldWake && !BOT_UA_REGEX.test(userAgent)) {
+      await startInstanceIfNeeded(INSTANCE_ID);
+    }
+
     const { state: ec2State, publicHostname } = await getInstanceState(INSTANCE_ID);
     const kvsStatus = await getKvsStatus(KVS_ARN);
 
@@ -143,9 +195,20 @@ export async function handler(event: any): Promise<LambdaResponse | void> {
     };
   }
 
-  // Any other HTTP path: Wake up the instance if stopped and show the splash screen
-  await startInstanceIfNeeded(INSTANCE_ID);
+  // If request is from a known crawler / bot, return Disallow without waking
+  if (BOT_UA_REGEX.test(userAgent)) {
+    return {
+      statusCode: 403,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+      body: 'Access denied: Crawler indexing disallowed.\n',
+    };
+  }
 
+  // Render the splash page. The browser's client-side JavaScript will execute
+  // and trigger /__wakeup/status?action=wake, avoiding crawler / scanner auto-wakeups.
   const html = renderWakeupPage(requestPath);
   return {
     statusCode: 200,

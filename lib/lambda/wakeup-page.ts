@@ -9,6 +9,7 @@ export function renderWakeupPage(requestedPath: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paperless-NGX is Waking Up</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <style>
     :root {
       --bg: #0f172a;
@@ -116,7 +117,8 @@ export function renderWakeupPage(requestedPath: string): string {
       async function checkStatus() {
         attempts++;
         try {
-          const res = await fetch('/__wakeup/status?t=' + Date.now());
+          const actionParam = attempts === 1 ? '&action=wake' : '';
+          const res = await fetch('/__wakeup/status?t=' + Date.now() + actionParam);
           if (res.ok) {
             const data = await res.json();
             if (data.state === 'running') {
@@ -136,7 +138,8 @@ export function renderWakeupPage(requestedPath: string): string {
         setTimeout(checkStatus, 2500);
       }
 
-      setTimeout(checkStatus, 2000);
+      // Immediately trigger wakeup via JS and start polling
+      setTimeout(checkStatus, 100);
     })();
   </script>
 </body>

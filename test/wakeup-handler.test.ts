@@ -63,33 +63,12 @@ describe('Wakeup Lambda Handler', () => {
     expect(parsed.publicHostname).toBe('ec2-1-2-3-4.compute-1.amazonaws.com');
   });
 
-  it('triggers StartInstances and renders splash screen when instance is stopped', async () => {
-    // 1st DescribeInstances returns stopped
-    mockEc2Send.mockResolvedValueOnce({
-      Reservations: [
-        {
-          Instances: [
-            {
-              State: { Name: 'stopped' },
-            },
-          ],
-        },
-      ],
-    });
-
-    // StartInstances succeeds
-    mockEc2Send.mockResolvedValueOnce({});
-
-    // KVS describe returns ETag
-    mockKvsSend.mockResolvedValueOnce({ ETag: 'ETAG123' });
-    // KVS put succeeds
-    mockKvsSend.mockResolvedValueOnce({});
-
+  it('serves splash page on GET /documents without starting instance (defends against crawlers)', async () => {
     const { handler } = await import('../lib/lambda/wakeup-handler.js');
 
     const event = {
       rawPath: '/documents',
-      headers: { host: 'paperless.example.com' },
+      headers: { host: 'paperless.example.com', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
     };
 
     const response = (await handler(event)) as any;
@@ -97,9 +76,86 @@ describe('Wakeup Lambda Handler', () => {
     expect(response.headers['Content-Type']).toContain('text/html');
     expect(response.body).toContain('Waking Up Paperless-NGX');
     expect(response.body).toContain('/documents');
+    expect(response.body).toContain('favicon.ico');
+    expect(response.body).toContain('action=wake');
 
-    // Verify StartInstances was called with the instance ID
-    expect(mockEc2Send).toHaveBeenCalledTimes(2);
+    // Instance is NOT started on initial GET /
+    expect(mockEc2Send).not.toHaveBeenCalled();
+  });
+
+  it('triggers StartInstances when JavaScript client executes /__wakeup/status?action=wake', async () => {
+    // 1st DescribeInstances in startInstanceIfNeeded
+    mockEc2Send.mockResolvedValueOnce({
+      Reservations: [{ Instances: [{ State: { Name: 'stopped' } }] }],
+    });
+    // StartInstances succeeds
+    mockEc2Send.mockResolvedValueOnce({});
+    // KVS describe returns ETag & put succeeds
+    mockKvsSend.mockResolvedValueOnce({ ETag: 'ETAG123' });
+    mockKvsSend.mockResolvedValueOnce({});
+
+    // 2nd DescribeInstances in status poll
+    mockEc2Send.mockResolvedValueOnce({
+      Reservations: [{ Instances: [{ State: { Name: 'pending' }, PublicDnsName: 'ec2-test.compute-1.amazonaws.com' }] }],
+    });
+    // KVS get status
+    mockKvsSend.mockResolvedValueOnce({ Value: 'starting' });
+
+    const { handler } = await import('../lib/lambda/wakeup-handler.js');
+
+    const event = {
+      rawPath: '/__wakeup/status',
+      rawQueryString: 'action=wake&t=1234567890',
+      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+    };
+
+    const response = (await handler(event)) as any;
+    expect(response.statusCode).toBe(200);
+    const parsed = JSON.parse(response.body);
+    expect(parsed.state).toBe('starting');
+
+    // Verify StartInstances was called
+    expect(mockEc2Send).toHaveBeenCalled();
+  });
+
+  it('serves robots.txt with Disallow without starting instance', async () => {
+    const { handler } = await import('../lib/lambda/wakeup-handler.js');
+
+    const response = (await handler({ rawPath: '/robots.txt', headers: {} })) as any;
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['Content-Type']).toContain('text/plain');
+    expect(response.body).toContain('Disallow: /');
+    expect(mockEc2Send).not.toHaveBeenCalled();
+  });
+
+  it('serves official Paperless favicon.ico without starting instance', async () => {
+    const { handler } = await import('../lib/lambda/wakeup-handler.js');
+
+    const response = (await handler({ rawPath: '/favicon.ico', headers: {} })) as any;
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['Content-Type']).toBe('image/x-icon');
+    expect(response.isBase64Encoded).toBe(true);
+    expect(response.body.length).toBeGreaterThan(1000);
+    expect(mockEc2Send).not.toHaveBeenCalled();
+  });
+
+  it('rejects bot scanner probes with 404 without starting instance', async () => {
+    const { handler } = await import('../lib/lambda/wakeup-handler.js');
+
+    const response = (await handler({ rawPath: '/.env', headers: {} })) as any;
+    expect(response.statusCode).toBe(404);
+    expect(mockEc2Send).not.toHaveBeenCalled();
+  });
+
+  it('rejects crawler User-Agents with 403 without starting instance', async () => {
+    const { handler } = await import('../lib/lambda/wakeup-handler.js');
+
+    const response = (await handler({
+      rawPath: '/',
+      headers: { 'user-agent': 'Googlebot/2.1 (+http://www.google.com/bot.html)' },
+    })) as any;
+    expect(response.statusCode).toBe(403);
+    expect(mockEc2Send).not.toHaveBeenCalled();
   });
 
   it('starts instance on S3 ObjectCreated event from inbox bucket', async () => {
