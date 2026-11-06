@@ -150,7 +150,7 @@ while true; do
     continue
   fi
 
-  ((idle_passes++))
+  idle_passes=$(( idle_passes + 1 ))
   log "Idle check passed ($idle_passes/$CONSECUTIVE_IDLE_REQUIRED). UI idle for ${ui_idle_seconds}s, 0 background tasks."
 
   if [[ "$idle_passes" -ge "$CONSECUTIVE_IDLE_REQUIRED" ]]; then
