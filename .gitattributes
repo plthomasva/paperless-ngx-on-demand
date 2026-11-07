@@ -1,0 +1,19 @@
+# Normalize line endings. LF is canonical in the repo and on checkout for every
+# platform (CI, Docker, and WSL are all LF-native). This prevents CRLF churn and
+# the "phantom modified files" that appear when the same checkout is viewed from
+# both Windows (autocrlf) and WSL/Linux git.
+* text=auto eol=lf
+
+# Explicit shell scripts
+*.sh text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.gz binary
+*.zip binary
