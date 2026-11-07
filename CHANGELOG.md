@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.2...paperless-ngx-on-demand-v1.1.3) (2026-11-07)
+
+
+### Bug Fixes
+
+* **csrf:** forward viewer host through CloudFront and configure trusted origins for custom domain ([150d36b](https://github.com/plthomasva/paperless-ngx-on-demand/commit/150d36b6e50fba8f41f4bb8bf180e15753c1b7d9))
+
 ## [1.1.2](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.1...paperless-ngx-on-demand-v1.1.2) (2026-11-06)
 
 
