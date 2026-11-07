@@ -2,8 +2,8 @@
 # migrate-from-pi.sh
 # Run this on your Raspberry Pi to migrate your existing Paperless-NGX
 # database and search index to the AWS on-demand setup.
-# NOTE: Because your /media directory is already mounted via s3fs in S3,
-# you DO NOT need to upload gigabytes of documents! Only /data is synced.
+# NOTE: Remember to sync your /media directory to S3 as well:
+# aws s3 sync /path/to/media/ s3://${S3_INBOX_BUCKET}/media/ --region ${AWS_REGION}
 
 set -euo pipefail
 
@@ -60,5 +60,5 @@ echo ""
 echo "=== Migration archive successfully uploaded to S3! ==="
 echo "When your AWS on-demand EC2 instance boots up for the first time, its"
 echo "boot-sync hook will automatically download and unpack this archive into /mnt/data."
-echo "Your documents in S3 will attach automatically via s3fs on boot."
+echo "Your documents in S3 will attach automatically via Mountpoint for Amazon S3 on boot."
 

@@ -15,6 +15,43 @@ export default defineConfig({
       title: 'Paperless-NGX On-Demand',
       description: 'Scale-to-zero Paperless-NGX deployment on AWS with dynamic CloudFront edge routing',
       social: [{ icon: 'github', label: 'GitHub', href: githubUrl }],
+      head: [
+        {
+          tag: 'script',
+          attrs: { type: 'module' },
+          content: `
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+            const renderMermaid = async () => {
+              const codeBlocks = document.querySelectorAll('pre[data-language="mermaid"], pre > code.language-mermaid');
+              if (codeBlocks.length === 0) return;
+              const isDark = document.documentElement.dataset.theme !== 'light';
+              mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+              for (const [i, el] of codeBlocks.entries()) {
+                const target = el.tagName === 'CODE' ? el.parentElement : el;
+                const code = el.textContent || '';
+                try {
+                  const { svg } = await mermaid.render('mermaid-svg-' + i, code);
+                  const wrapper = document.createElement('div');
+                  wrapper.className = 'mermaid-container';
+                  wrapper.style.display = 'flex';
+                  wrapper.style.justifyContent = 'center';
+                  wrapper.style.margin = '1.5rem 0';
+                  wrapper.innerHTML = svg;
+                  target.replaceWith(wrapper);
+                } catch (err) {
+                  console.error('Mermaid rendering error:', err);
+                }
+              }
+            };
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', renderMermaid);
+            } else {
+              renderMermaid();
+            }
+            document.addEventListener('astro:page-load', renderMermaid);
+          `,
+        },
+      ],
       sidebar: [
         {
           label: 'Getting Started',
