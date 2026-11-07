@@ -47,7 +47,7 @@ export class ComputeInstance extends Construct {
       managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
     });
 
-    // Grant access to existing S3 Media bucket (for s3fs)
+    // Grant access to existing S3 Media bucket (for mount-s3)
     props.mediaBucket.grantReadWrite(this.role);
 
     // Grant access to S3 Inbox & Backups bucket
@@ -105,7 +105,7 @@ export class ComputeInstance extends Construct {
       'ln -sf $DOCKER_CONFIG/cli-plugins/docker-compose /usr/local/bin/docker-compose || true',
       '',
       '# Create directories',
-      'mkdir -p /opt/paperless/runtime /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless /var/cache/s3fs',
+      'mkdir -p /opt/paperless/runtime /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless',
       '',
       '# Write environment file',
       "cat << 'EOF' > /opt/paperless/runtime/.env",

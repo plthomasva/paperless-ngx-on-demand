@@ -17,35 +17,45 @@ For a personal home archivist scanning a handful of utility bills, tax receipts,
 
 **Paperless-NGX On-Demand** bridges this gap by deploying an Infrastructure-as-Code (AWS CDK in TypeScript) architecture designed specifically for **single-tenant personal archiving**:
 
-```
-                       ┌──────────────────────────────────────────────────┐
-                       │              Amazon CloudFront (TLS)             │
-                       └────────────┬────────────────────────┬────────────┘
-             1. Normal Traffic      │                        │ 2. When Stopped
-             (When Running)         ▼                        ▼ (Status != 'running' / Poll)
-            ┌────────────────────────────────────────────┐ ┌──────────────────────────────────┐
-            │   EC2 t4g.medium (Graviton ARM64)          │ │   Wake-Up Lambda (Function URL)  │
-            │  ┌──────────────────────────────────────┐  │ │  • Starts EC2 Instance           │
-            │  │ Caddy / Nginx Activity Proxy (:8000) │  │ │  • Returns auto-refreshing       │
-            │  │  • Tracks last HTTP request time     │  │ │    "Waking up..." HTML page      │
-            │  └──────────────────┬───────────────────┘  │ └──────────────────────────────────┘
-            │                     ▼                      │                   ▲
-            │  ┌──────────────────────────────────────┐  │                   │ 3. Headless Trigger
-            │  │ Paperless-NGX (:8080) + Redis Alpine │  │        ┌──────────┴───────────┐
-            │  │  • Granian UI + Celery Workers       │  │        │ S3 Inbox Bucket      │
-            │  │  • Local SQLite + Whoosh Index       │  │        │ (Drop PDFs any time) │
-            │  └──────────────────┬───────────────────┘  │        └──────────────────────┘
-            │                     ▼                      │
-            └─────────────────────┼──────────────────────┘
-                                  ▼
-        ┌────────────────────────────────────────────────────────┐
-        │ Root EBS gp3 (10 GB)  • Local /data (SQLite + Whoosh)  │
-        │                       • /tmp/paperless (OCR scratch)   │
-        ├────────────────────────────────────────────────────────┤
-        │ S3 Storage Bucket     • Mounted via s3fs at /media     │
-        │ (Existing or auto-    • Free S3 Gateway VPC Endpoint   │
-        │ namespaced)           • Local metadata & stat cache    │
-        └────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Edge["Amazon CloudFront Edge (TLS)"]
+        CF["CloudFront Distribution<br/>Custom Domain / Alternate CNAME"]
+        KVS[("CloudFront KeyValueStore<br/>Routing State: running | stopped")]
+        CFFunction["CloudFront Function<br/>DynamicOriginRouter"]
+        CF --> CFFunction
+        CFFunction -. reads .-> KVS
+    end
+
+    subgraph Wakeup["Wake-Up Flow (When Stopped)"]
+        Lambda["Wake-Up Lambda (Function URL)"]
+        WakeupUI["Auto-refreshing Status Screen<br/>(Polls /__wakeup/status every 3s)"]
+        Lambda --> WakeupUI
+        Lambda -. "StartInstances" .-> EC2
+    end
+
+    subgraph Ingestion["Headless Ingestion Flow"]
+        S3Inbox["S3 Storage Bucket<br/>s3://bucket/consume/"]
+        S3Inbox -. "ObjectCreated Event" .-> Lambda
+    end
+
+    subgraph Compute["EC2 t4g.medium (Graviton ARM64)"]
+        Proxy["Nginx Activity Proxy (:8000)<br/>Validates CloudFront Secret<br/>Touches /tmp/access.log"]
+        App["Paperless-NGX (:8080) + Redis Alpine<br/>Granian UI + Celery Workers"]
+        Watchdog["Idle Drain Watchdog<br/>Monitors UI, queues, OCR jobs"]
+        Proxy --> App
+        Watchdog -. "Shuts down on idle" .-> EC2
+    end
+
+    subgraph Storage["Hybrid Storage Layer"]
+        EBS[("Root EBS gp3 (10 GB)<br/>Local /data (SQLite + Whoosh)<br/>/tmp/paperless (OCR scratch)")]
+        S3Media[("S3 Storage Bucket<br/>Mounted via Mountpoint for Amazon S3 at /media<br/>Free S3 Gateway VPC Endpoint")]
+        App --> EBS
+        App --> S3Media
+    end
+
+    CFFunction -- "1. Normal Traffic (status == 'running')" --> Proxy
+    CFFunction -- "2. When Asleep (status != 'running')" --> Lambda
 ```
 
 ### Lifecycle Walkthrough
@@ -57,7 +67,7 @@ For a personal home archivist scanning a handful of utility bills, tax receipts,
 3. **Instance Spin-Up**:
    The Wakeup Lambda issues an EC2 `StartInstances` API call and immediately responds with a fast, responsive HTML splash screen that polls the Lambda status every 3 seconds.
 4. **Boot & Sync (~45–60 seconds)**:
-   The instance boots Amazon Linux 2023. The `boot-sync.sh` systemd service pulls the latest SQLite database backup from S3, mounts the S3 media bucket via `s3fs`, and launches Paperless-NGX and Redis via Docker Compose.
+   The instance boots Amazon Linux 2023. The `boot-sync.sh` systemd service pulls the latest SQLite database backup from S3, mounts the S3 media bucket via Mountpoint for Amazon S3 (`mount-s3`), and launches Paperless-NGX and Redis via Docker Compose.
 5. **Edge Switchover**:
    As soon as health checks succeed on port 8000, the instance updates the CloudFront KVS to `"running"`. Subsequent web requests route directly to EC2 with zero Lambda invocation latency.
 6. **Task Drain & Safe Sleep**:

@@ -56,12 +56,12 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     expect(content).toContain('rollback');
   });
 
-  it('contains boot-sync.sh with s3fs mount, latest data restore, and KVS origin update', () => {
+  it('contains boot-sync.sh with mount-s3 mount, latest data restore, and KVS origin update', () => {
     const bootPath = path.join(runtimeDir, 'boot-sync.sh');
     expect(fs.existsSync(bootPath)).toBe(true);
 
     const content = fs.readFileSync(bootPath, 'utf8');
-    expect(content).toContain('s3fs');
+    expect(content).toContain('mount-s3');
     expect(content).toContain('paperless-data-latest.tar.gz');
     expect(content).toContain('cloudfront-keyvaluestore');
     expect(content).toContain('originDomain');

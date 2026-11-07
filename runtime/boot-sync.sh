@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # boot-sync.sh
-# Runs at EC2 system boot. Mounts s3fs, restores /data from S3 if missing,
+# Runs at EC2 system boot. Mounts S3 bucket via mount-s3, restores /data from S3 if missing,
 # starts Docker Compose, verifies Paperless is healthy, and updates CloudFront
 # KeyValueStore to route traffic to this instance.
 
@@ -39,7 +39,7 @@ if [[ -n "$MEDIA_BUCKET" ]]; then
 fi
 
 # 1. Create required directories
-mkdir -p /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless /var/cache/s3fs
+mkdir -p /mnt/data /mnt/paperless-media /mnt/consume /mnt/export /tmp/paperless
 chmod 775 /tmp/paperless
 chown -R 1000:1000 /mnt/data /mnt/consume /mnt/export /tmp/paperless
 

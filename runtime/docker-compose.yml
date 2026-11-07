@@ -22,7 +22,7 @@ services:
     volumes:
       # SQLite database and Whoosh full-text index live on local EBS gp3
       - /mnt/data:/usr/src/paperless/data
-      # Media library (originals, archive, thumbnails) lives on S3 via s3fs
+      # Media library (originals, archive, thumbnails) lives on S3 via Mountpoint for Amazon S3 (mount-s3)
       - /mnt/paperless-media:/usr/src/paperless/media
       - /mnt/export:/usr/src/paperless/export
       - /mnt/consume:/usr/src/paperless/consume
