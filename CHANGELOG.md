@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.0...paperless-ngx-on-demand-v1.2.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **docs:** preserve newlines and replace frame when rendering Mermaid diagrams ([#20](https://github.com/plthomasva/paperless-ngx-on-demand/issues/20)) ([d5f243b](https://github.com/plthomasva/paperless-ngx-on-demand/commit/d5f243bb6d6356ff18e85a791bfa87e3e219077b))
+
 ## [1.2.0](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.3...paperless-ngx-on-demand-v1.2.0) (2026-11-07)
 
 
