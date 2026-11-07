@@ -15,7 +15,7 @@ services:
     ports:
       - '127.0.0.1:8080:8000'
     healthcheck:
-      test: [ 'CMD', 'curl', '-fs', '-S', '--max-time', '2', 'http://localhost:8000/api/' ]
+      test: ['CMD', 'curl', '-fs', '-S', '--max-time', '2', 'http://localhost:8000/api/']
       interval: 10s
       timeout: 5s
       retries: 5
