@@ -28,7 +28,7 @@
 
 ### Features
 
-* add ACM certificate and custom domain routing support for pod.painless-computing.com ([2913186](https://github.com/plthomasva/paperless-ngx-on-demand/commit/2913186518642911a829404091ba433c69796d42))
+* add ACM certificate and custom domain routing support for paperless.example.com ([2913186](https://github.com/plthomasva/paperless-ngx-on-demand/commit/2913186518642911a829404091ba433c69796d42))
 * add interactive setup wizard, auto-namespaced buckets, and local gitignored configuration ([eec23e5](https://github.com/plthomasva/paperless-ngx-on-demand/commit/eec23e5c181e40f2f66b4302ed9754542556efee))
 * add official Paperless favicon, crawler defense, and JS-initiated wakeup ([b0c0572](https://github.com/plthomasva/paperless-ngx-on-demand/commit/b0c0572bc9fbc93f40388c038bd5825ee99c47ed))
 * **ci:** add CI quality checking, release management, CC-BY-NC licensing, and quality badges ([4e48510](https://github.com/plthomasva/paperless-ngx-on-demand/commit/4e485103fa3578faaf32612142b90f71975fafdf))

@@ -98,28 +98,29 @@ if [[ -n "$INBOX_BUCKET" ]]; then
   aws s3 mv "s3://${INBOX_BUCKET}/consume/" "/mnt/consume/" --recursive --exclude "" --exclude "*/" --region "$AWS_REGION" 2>/dev/null || true
 fi
 
-# 5. Ensure CSRF trusted origins and domain are configured for custom domains
-DOMAIN_NAME="${DOMAIN_NAME:-pod.painless-computing.com}"
-default_trusted="https://${DOMAIN_NAME},https://*.painless-computing.com,https://*.cloudfront.net,https://localhost,http://localhost"
-if [[ -n "${PAPERLESS_CSRF_TRUSTED_ORIGINS:-}" ]]; then
-  if [[ "$PAPERLESS_CSRF_TRUSTED_ORIGINS" != *"$DOMAIN_NAME"* ]]; then
-    export PAPERLESS_CSRF_TRUSTED_ORIGINS="${PAPERLESS_CSRF_TRUSTED_ORIGINS},${default_trusted}"
+# 5. Ensure CSRF trusted origins and domain are configured for custom domains if set
+if [[ -n "${DOMAIN_NAME:-}" ]] && [[ "$DOMAIN_NAME" != "localhost" ]]; then
+  parent_domain="${DOMAIN_NAME#*.}"
+  dynamic_trusted="https://${DOMAIN_NAME},https://*.${parent_domain},https://*.cloudfront.net,https://localhost,http://localhost"
+  if [[ -n "${PAPERLESS_CSRF_TRUSTED_ORIGINS:-}" ]]; then
+    if [[ "$PAPERLESS_CSRF_TRUSTED_ORIGINS" != *"$DOMAIN_NAME"* ]]; then
+      export PAPERLESS_CSRF_TRUSTED_ORIGINS="${PAPERLESS_CSRF_TRUSTED_ORIGINS},${dynamic_trusted}"
+    fi
+  else
+    export PAPERLESS_CSRF_TRUSTED_ORIGINS="$dynamic_trusted"
   fi
-else
-  export PAPERLESS_CSRF_TRUSTED_ORIGINS="$default_trusted"
-fi
 
-if [[ -z "${PAPERLESS_URL:-}" ]] || [[ "$PAPERLESS_URL" == *"localhost"* ]]; then
-  export PAPERLESS_URL="https://${DOMAIN_NAME}"
-fi
+  if [[ -z "${PAPERLESS_URL:-}" ]] || [[ "$PAPERLESS_URL" == *"localhost"* ]]; then
+    export PAPERLESS_URL="https://${DOMAIN_NAME}"
+  fi
 
-# Ensure updated environment variables are persisted in /opt/paperless/runtime/.env
-if [[ -f "/opt/paperless/runtime/.env" ]] && ! grep -q "pod.painless-computing.com" /opt/paperless/runtime/.env 2>/dev/null; then
-  cat << ENV_APPEND >> /opt/paperless/runtime/.env
-DOMAIN_NAME=${DOMAIN_NAME}
+  # Ensure updated environment variables are persisted in /opt/paperless/runtime/.env
+  if [[ -f "/opt/paperless/runtime/.env" ]] && ! grep -q "PAPERLESS_CSRF_TRUSTED_ORIGINS" /opt/paperless/runtime/.env 2>/dev/null; then
+    cat << ENV_APPEND >> /opt/paperless/runtime/.env
 PAPERLESS_URL=${PAPERLESS_URL}
 PAPERLESS_CSRF_TRUSTED_ORIGINS=${PAPERLESS_CSRF_TRUSTED_ORIGINS}
 ENV_APPEND
+  fi
 fi
 
 # 6. Start Docker Compose services (nginx activity proxy uses envsubst for ORIGIN_VERIFY_SECRET)
