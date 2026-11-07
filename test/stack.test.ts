@@ -100,6 +100,62 @@ describe('PaperlessOnDemandStack Architecture Guardrails', () => {
   it('provisions S3 bucket deployment to sync runtime scripts automatically on deploy', () => {
     template.resourceCountIs('Custom::CDKBucketDeployment', 1);
   });
+
+  it('provisions CloudFormation outputs with descriptions and values', () => {
+    template.hasOutput('PaperlessUrl', {
+      Description: 'Public URL for Paperless-NGX (Point your browser here)',
+    });
+    template.hasOutput('CloudFrontUrl', {
+      Description: 'CloudFront distribution default domain',
+    });
+    template.hasOutput('S3StorageBucket', {
+      Description: 'Unified S3 storage bucket for media, drop ingestion (/consume), and backups',
+    });
+    template.hasOutput('InstanceId', {
+      Description: 'EC2 Instance ID for Paperless-NGX',
+    });
+    template.hasOutput('KvsArn', {
+      Description: 'CloudFront KeyValueStore ARN for edge state',
+    });
+  });
+
+  it('instantiates default stack with no props', () => {
+    const customApp = new cdk.App();
+    const customStack = new PaperlessOnDemandStack(customApp, 'NoPropsStack');
+    const customTemplate = Template.fromStack(customStack);
+    customTemplate.resourceCountIs('AWS::EC2::VPC', 1);
+  });
+
+  it('supports existingMediaBucketName backwards compatibility alias', () => {
+    const customApp = new cdk.App();
+    const customStack = new PaperlessOnDemandStack(customApp, 'MediaBucketStack', {
+      existingMediaBucketName: 'legacy-media-bucket',
+    });
+    const customTemplate = Template.fromStack(customStack);
+    customTemplate.resourceCountIs('AWS::S3::Bucket', 0);
+  });
+
+  it('passes explicit originVerifySecret when specified', () => {
+    const customApp = new cdk.App();
+    const customStack = new PaperlessOnDemandStack(customApp, 'CustomSecretStack', {
+      originVerifySecret: 'my-custom-verify-secret-12345',
+    });
+    const customTemplate = Template.fromStack(customStack);
+    customTemplate.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        Origins: Match.arrayWith([
+          Match.objectLike({
+            OriginCustomHeaders: Match.arrayWith([
+              Match.objectLike({
+                HeaderName: 'x-origin-verify',
+                HeaderValue: 'my-custom-verify-secret-12345',
+              }),
+            ]),
+          }),
+        ]),
+      }),
+    });
+  });
 });
 
 describe('PaperlessOnDemandStack with Existing S3 Storage Bucket', () => {
