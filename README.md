@@ -16,44 +16,54 @@ The server sleeps when idle ($0/hr compute) and **wakes up automatically on dema
 ## Architecture
 
 ```mermaid
-flowchart TD
-    subgraph Edge["Amazon CloudFront Edge (TLS)"]
-        CF["CloudFront Distribution<br/>Custom Domain / Alternate CNAME"]
-        KVS[("CloudFront KeyValueStore<br/>Routing State: running | stopped")]
-        CFFunction["CloudFront Function<br/>DynamicOriginRouter"]
-        CF --> CFFunction
-        CFFunction -. reads .-> KVS
+flowchart LR
+    %% Column 1: Ingress
+    subgraph Ingress["1. Ingress & Triggers"]
+        User["👤 Web User<br/>(HTTPS / Custom Domain)"]
+        Scanner["📄 Document Sources<br/>(Scanner / Mobile / Email)"]
     end
 
-    subgraph Wakeup["Wake-Up Flow (When Stopped)"]
-        Lambda["Wake-Up Lambda (Function URL)"]
-        WakeupUI["Auto-refreshing Status Screen<br/>(Polls /__wakeup/status every 3s)"]
-        Lambda --> WakeupUI
-        Lambda -. "StartInstances" .-> EC2
+    %% Column 2: Edge Routing & Wakeup
+    subgraph Edge["2. Edge & Serverless Wake-Up"]
+        CF["CloudFront Distribution<br/>TLS Termination & KVS"]
+        Router{"CloudFront Function<br/>Dynamic Origin Router"}
+        Lambda["Wake-Up Lambda<br/>+ Status Screen"]
+        S3Inbox[("S3 Inbox Bucket<br/>s3://bucket/consume/")]
+
+        CF --> Router
+        Router -- "when stopped" --> Lambda
+        S3Inbox -. "ObjectCreated" .-> Lambda
     end
 
-    subgraph Ingestion["Headless Ingestion Flow"]
-        S3Inbox["S3 Storage Bucket<br/>s3://bucket/consume/"]
-        S3Inbox -. "ObjectCreated Event" .-> Lambda
-    end
+    %% Column 3: Compute
+    subgraph Compute["3. On-Demand Host (EC2 Graviton t4g.medium)"]
+        Proxy["Nginx Activity Proxy (:8000)<br/>Validates Edge Secret & Logs Traffic"]
+        App["Paperless-NGX (:8080)<br/>Granian UI & Celery OCR Workers"]
+        Redis[("Redis (Alpine)<br/>Task Queue")]
+        Watchdog["Scale-to-Zero Watchdog<br/>Monitors UI & queues; stops EC2 on idle"]
 
-    subgraph Compute["EC2 t4g.medium (Graviton ARM64)"]
-        Proxy["Nginx Activity Proxy (:8000)<br/>Validates CloudFront Secret<br/>Touches /tmp/access.log"]
-        App["Paperless-NGX (:8080) + Redis Alpine<br/>Granian UI + Celery Workers"]
-        Watchdog["Idle Drain Watchdog<br/>Monitors UI, queues, OCR jobs"]
         Proxy --> App
-        Watchdog -. "Shuts down on idle" .-> EC2
+        App <--> Redis
+        App -. "monitored by" .-> Watchdog
     end
 
-    subgraph Storage["Hybrid Storage Layer"]
-        EBS[("Root EBS gp3 (10 GB)<br/>Local /data (SQLite + Whoosh)<br/>/tmp/paperless (OCR scratch)")]
-        S3Media[("S3 Storage Bucket<br/>Mounted via Mountpoint for Amazon S3 at /media<br/>Free S3 Gateway VPC Endpoint")]
-        App --> EBS
-        App --> S3Media
+    %% Column 4: Storage
+    subgraph Storage["4. Persistent Storage Layer"]
+        EBS[("Fast Local EBS gp3 (10 GB)<br/>SQLite DB + Whoosh Index")]
+        S3Media[("S3 Storage Bucket (/media)<br/>Mountpoint for Amazon S3")]
+        S3Backup[("S3 Backup Archive (/backup)<br/>Automated SQLite Snapshots")]
     end
 
-    CFFunction -- "1. Normal Traffic (status == 'running')" --> Proxy
-    CFFunction -- "2. When Asleep (status != 'running')" --> Lambda
+    %% Cross-column connections (Strictly Left to Right)
+    User --> CF
+    Scanner --> S3Inbox
+
+    Router -- "when running" --> Proxy
+    Lambda -. "ec2:StartInstances" .-> Proxy
+
+    App --> EBS
+    App <--> S3Media
+    Watchdog -. "sqlite3 .backup" .-> S3Backup
 ```
 
 ---
