@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.3...paperless-ngx-on-demand-v1.2.0) (2026-11-07)
+
+
+### Features
+
+* **mail:** check mail on boot and every 2m, auto-generate missing thumbnails ([dd3657c](https://github.com/plthomasva/paperless-ngx-on-demand/commit/dd3657c8b9a51b8831763e7fd2949fca5c5973ca))
+
+
+### Bug Fixes
+
+* **csrf:** redact hardcoded domains from changelog and make CSRF origins dynamically derived from DOMAIN_NAME ([0e92404](https://github.com/plthomasva/paperless-ngx-on-demand/commit/0e92404f5d8bbc644cc71a03cc2658edad947ec5))
+
 ## [1.1.3](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.1.2...paperless-ngx-on-demand-v1.1.3) (2026-11-07)
 
 
