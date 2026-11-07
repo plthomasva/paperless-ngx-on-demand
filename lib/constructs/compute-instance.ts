@@ -116,7 +116,7 @@ export class ComputeInstance extends Construct {
       `ORIGIN_VERIFY_SECRET=${props.originVerifySecret}`,
       `DOMAIN_NAME=${props.domainName || 'localhost'}`,
       `PAPERLESS_URL=https://${props.domainName || 'localhost'}`,
-      `PAPERLESS_CSRF_TRUSTED_ORIGINS=https://${props.domainName || 'localhost'},https://*.cloudfront.net,https://localhost,http://localhost`,
+      `PAPERLESS_CSRF_TRUSTED_ORIGINS=https://${props.domainName || 'localhost'},https://*.${props.domainName && props.domainName.includes('.') ? props.domainName.split('.').slice(1).join('.') : 'localhost'},https://*.cloudfront.net,https://localhost,http://localhost`,
       `PAPERLESS_ADMIN_USER=${props.adminUser || 'admin'}`,
       `PAPERLESS_ADMIN_PASSWORD=${props.adminPassword || 'admin'}`,
       `PAPERLESS_ADMIN_EMAIL=${props.adminEmail || 'admin@example.com'}`,

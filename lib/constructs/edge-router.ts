@@ -44,6 +44,11 @@ async function handler(event) {
   var request = event.request;
   var uri = request.uri;
 
+  // Preserve the original viewer Host header so Nginx and Django recognize the public domain
+  if (request.headers.host) {
+    request.headers['x-forwarded-host'] = { value: request.headers.host.value };
+  }
+
   // Status check and wake-up paths go straight to the default origin (Lambda Function URL)
   if (uri.startsWith('/__wakeup')) {
     return request;
