@@ -160,7 +160,15 @@ if [[ "$PENDING_LOADDATA" == "true" ]]; then
   /opt/paperless/runtime/backup-data.sh || log "Warning: Initial backup non-zero exit."
 fi
 
-# 8. Retrieve IMDSv2 token and instance public DNS hostname
+# 8. Check and generate any missing document thumbnails in the background
+log "Generating any missing document thumbnails in background..."
+docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_thumbnails >/tmp/thumbnails.log 2>&1 &
+
+# 9. Trigger immediate mail check so emails sent while sleeping are consumed on wake
+log "Triggering initial mail check for inbound documents..."
+docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py mail_fetcher >/tmp/mail_fetcher.log 2>&1 &
+
+# 10. Retrieve IMDSv2 token and instance public DNS hostname
 imds_token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || echo "")
 public_hostname=""
 if [[ -n "$imds_token" ]]; then
