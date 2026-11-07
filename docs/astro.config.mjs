@@ -21,34 +21,57 @@ export default defineConfig({
           attrs: { type: 'module' },
           content: `
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-            const renderMermaid = async () => {
-              const codeBlocks = document.querySelectorAll('pre[data-language="mermaid"], pre > code.language-mermaid');
-              if (codeBlocks.length === 0) return;
+
+            let renderSeq = 0;
+            const renderAll = async () => {
+              const blocks = document.querySelectorAll('pre[data-language="mermaid"], .mermaid-rendered');
+              if (blocks.length === 0) return;
               const isDark = document.documentElement.dataset.theme !== 'light';
               mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
-              for (const [i, el] of codeBlocks.entries()) {
-                const target = el.tagName === 'CODE' ? el.parentElement : el;
-                const code = el.textContent || '';
+
+              for (const el of blocks) {
+                let code = el.dataset?.mermaidCode;
+                let target = el;
+                if (!code) {
+                  const lines = Array.from(el.querySelectorAll('.ec-line')).map(l => l.textContent);
+                  code = lines.length > 0 ? lines.join('\\n') : (el.innerText || '');
+                  target = el.closest('figure') || el;
+                }
+                if (!code.trim()) continue;
+
                 try {
-                  const { svg } = await mermaid.render('mermaid-svg-' + i, code);
-                  const wrapper = document.createElement('div');
-                  wrapper.className = 'mermaid-container';
-                  wrapper.style.display = 'flex';
-                  wrapper.style.justifyContent = 'center';
-                  wrapper.style.margin = '1.5rem 0';
-                  wrapper.innerHTML = svg;
-                  target.replaceWith(wrapper);
-                } catch (err) {
-                  console.error('Mermaid rendering error:', err);
+                  const seqId = 'mermaid-svg-' + (++renderSeq);
+                  const { svg } = await mermaid.render(seqId, code);
+                  const container = document.createElement('div');
+                  container.className = 'mermaid-rendered';
+                  container.dataset.mermaidCode = code;
+                  container.style.display = 'flex';
+                  container.style.justifyContent = 'center';
+                  container.style.margin = '2rem 0';
+                  container.innerHTML = svg;
+                  target.replaceWith(container);
+                } catch (e) {
+                  console.error('Mermaid render error:', e);
                 }
               }
             };
+
             if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', renderMermaid);
+              document.addEventListener('DOMContentLoaded', renderAll);
             } else {
-              renderMermaid();
+              renderAll();
             }
-            document.addEventListener('astro:page-load', renderMermaid);
+            document.addEventListener('astro:page-load', renderAll);
+
+            const observer = new MutationObserver(mutations => {
+              for (const mutation of mutations) {
+                if (mutation.attributeName === 'data-theme') {
+                  renderAll();
+                  break;
+                }
+              }
+            });
+            observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
           `,
         },
       ],
