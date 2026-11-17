@@ -42,6 +42,8 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     const content = fs.readFileSync(backupPath, 'utf8');
     expect(content).toContain('.backup');
     expect(content).toContain('dumpdata');
+    expect(content).toContain('-u 1000:1000');
+    expect(content).toContain('-w /usr/src/paperless/src');
     expect(content).toContain('s3://${INBOX_BUCKET}/backups/');
   });
 
@@ -65,5 +67,14 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     expect(content).toContain('paperless-data-latest.tar.gz');
     expect(content).toContain('cloudfront-keyvaluestore');
     expect(content).toContain('originDomain');
+    expect(content).toContain(
+      '-u 1000:1000 -w /usr/src/paperless/src webserver python3 manage.py loaddata'
+    );
+    expect(content).toContain('webserver document_index reindex');
+    expect(content).toContain('webserver document_thumbnails');
+    expect(content).toContain('webserver mail_fetcher');
+    // Ensure bare python3 manage.py calls that fail without working directory or wrong permissions are not used
+    expect(content).not.toContain('python3 manage.py document_thumbnails');
+    expect(content).not.toContain('python3 manage.py mail_fetcher');
   });
 });
