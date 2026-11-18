@@ -51,7 +51,7 @@ describe('EdgeRouter Construct', () => {
         ]),
       },
       FunctionCode: Match.stringLikeRegexp(
-        "[\\s\\S]*x-forwarded-host[\\s\\S]*__wakeup[\\s\\S]*updateRequestOrigin[\\s\\S]*port: 8000[\\s\\S]*protocol: 'http'[\\s\\S]*"
+        "[\\s\\S]*x-forwarded-host[\\s\\S]*__wakeup[\\s\\S]*compute-1\\.amazonaws\\.com[\\s\\S]*updateRequestOrigin[\\s\\S]*port: 8000[\\s\\S]*protocol: 'http'[\\s\\S]*"
       ),
     });
 

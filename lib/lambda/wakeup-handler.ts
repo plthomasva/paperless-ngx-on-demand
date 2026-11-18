@@ -78,7 +78,15 @@ export async function getInstanceState(
     );
     const inst = res.Reservations?.[0]?.Instances?.[0];
     const state = inst?.State?.Name || 'unknown';
-    const publicHostname = inst?.PublicDnsName || inst?.PublicIpAddress || undefined;
+    let publicHostname = inst?.PublicDnsName || undefined;
+    if (!publicHostname && inst?.PublicIpAddress) {
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const dashed = inst.PublicIpAddress.replace(/\./g, '-');
+      publicHostname =
+        region === 'us-east-1'
+          ? `ec2-${dashed}.compute-1.amazonaws.com`
+          : `ec2-${dashed}.${region}.compute.amazonaws.com`;
+    }
     return { state, publicHostname };
   } catch (err) {
     console.error(`Failed to describe instance ${instanceId}:`, err);

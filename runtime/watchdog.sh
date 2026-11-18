@@ -44,14 +44,14 @@ update_kvs_status() {
   if [[ -n "$KVS_NAME" ]]; then
     log "Updating CloudFront KeyValueStore ($KVS_NAME) status to '$new_status'..."
     local etag
-    etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region "$AWS_REGION" --query "ETag" --output text 2>/dev/null || echo "")
+    etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region us-east-1 --query "ETag" --output text 2>/dev/null || echo "")
     if [[ -n "$etag" ]]; then
       aws cloudfront-keyvaluestore put-key \
         --kvs-arn "$KVS_NAME" \
         --key "status" \
         --value "$new_status" \
         --if-match "$etag" \
-        --region "$AWS_REGION" >/dev/null 2>&1 || log "Warning: Failed to update KVS status."
+        --region us-east-1 >/dev/null 2>&1 || log "Warning: Failed to update KVS status."
     fi
   fi
 }
