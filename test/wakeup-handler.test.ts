@@ -21,6 +21,9 @@ vi.mock('@aws-sdk/client-ec2', () => {
     StartInstancesCommand: vi
       .fn()
       .mockImplementation((input) => ({ input, _type: 'StartInstances' })),
+    RebootInstancesCommand: vi
+      .fn()
+      .mockImplementation((input) => ({ input, _type: 'RebootInstances' })),
   };
 });
 
@@ -42,12 +45,14 @@ import {
   updateKvsKey,
   getInstanceState,
   startInstanceIfNeeded,
+  resetRebootCooldown,
   handler,
 } from '../lib/lambda/wakeup-handler.js';
 
 describe('Wakeup Lambda Handler Helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRebootCooldown();
     process.env.INSTANCE_ID = 'i-1234567890abcdef0';
     process.env.KVS_ARN = 'arn:aws:cloudfront::123456789012:key-value-store/test-kvs';
   });
@@ -321,6 +326,103 @@ describe('Wakeup Lambda Handler Helpers', () => {
       const state = await startInstanceIfNeeded('i-12345');
       expect(state).toBe('running');
       expect(mockEc2Send).toHaveBeenCalledTimes(1);
+    });
+
+    it('reboots running instance if running longer than threshold and kvsStatus is not running, respecting cooldown', async () => {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      mockEc2Send.mockResolvedValueOnce({
+        Reservations: [
+          {
+            Instances: [
+              {
+                State: { Name: 'running' },
+                LaunchTime: tenMinutesAgo,
+              },
+            ],
+          },
+        ],
+      });
+      mockKvsSend.mockResolvedValueOnce({ Value: 'stopped' }); // getKvsStatus
+      mockEc2Send.mockResolvedValueOnce({}); // RebootInstancesCommand
+      mockKvsSend.mockResolvedValueOnce({ ETag: 'ET_REBOOT' }); // DescribeKeyValueStoreCommand
+      mockKvsSend.mockResolvedValueOnce({}); // PutKeyCommand
+
+      const state = await startInstanceIfNeeded('i-12345');
+      expect(state).toBe('starting');
+      expect(mockEc2Send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _type: 'RebootInstances',
+          input: { InstanceIds: ['i-12345'] },
+        })
+      );
+      expect(mockKvsSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _type: 'PutKey',
+          input: expect.objectContaining({
+            Key: 'status',
+            Value: 'starting',
+          }),
+        })
+      );
+
+      // Second call within cooldown should NOT trigger another reboot
+      mockEc2Send.mockResolvedValueOnce({
+        Reservations: [
+          {
+            Instances: [
+              {
+                State: { Name: 'running' },
+                LaunchTime: tenMinutesAgo,
+              },
+            ],
+          },
+        ],
+      });
+      const secondState = await startInstanceIfNeeded('i-12345');
+      expect(secondState).toBe('running');
+      expect(mockEc2Send).toHaveBeenCalledTimes(3); // 2 from first call + 1 DescribeInstances from second call
+    });
+
+    it('does not reboot running instance if running longer than threshold but kvsStatus is already running', async () => {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      mockEc2Send.mockResolvedValueOnce({
+        Reservations: [
+          {
+            Instances: [
+              {
+                State: { Name: 'running' },
+                LaunchTime: tenMinutesAgo,
+              },
+            ],
+          },
+        ],
+      });
+      mockKvsSend.mockResolvedValueOnce({ Value: 'running' });
+
+      const state = await startInstanceIfNeeded('i-12345');
+      expect(state).toBe('running');
+      expect(mockEc2Send).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not reboot running instance if launchTime is within threshold', async () => {
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+      mockEc2Send.mockResolvedValueOnce({
+        Reservations: [
+          {
+            Instances: [
+              {
+                State: { Name: 'running' },
+                LaunchTime: oneMinuteAgo,
+              },
+            ],
+          },
+        ],
+      });
+
+      const state = await startInstanceIfNeeded('i-12345');
+      expect(state).toBe('running');
+      expect(mockEc2Send).toHaveBeenCalledTimes(1);
+      expect(mockKvsSend).not.toHaveBeenCalled();
     });
   });
 });

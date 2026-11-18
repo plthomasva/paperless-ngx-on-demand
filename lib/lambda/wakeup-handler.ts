@@ -1,5 +1,10 @@
 import '@aws-sdk/signature-v4a';
-import { EC2Client, DescribeInstancesCommand, StartInstancesCommand } from '@aws-sdk/client-ec2';
+import {
+  EC2Client,
+  DescribeInstancesCommand,
+  StartInstancesCommand,
+  RebootInstancesCommand,
+} from '@aws-sdk/client-ec2';
 import {
   CloudFrontKeyValueStoreClient,
   DescribeKeyValueStoreCommand,
@@ -14,6 +19,12 @@ const kvs = new CloudFrontKeyValueStoreClient({ region: 'us-east-1' });
 
 const INSTANCE_ID = process.env.INSTANCE_ID || '';
 const KVS_ARN = process.env.KVS_ARN || '';
+const STUCK_BOOT_THRESHOLD_MS = 5 * 60 * 1000;
+let lastRebootAttemptMs = 0;
+
+export function resetRebootCooldown(): void {
+  lastRebootAttemptMs = 0;
+}
 
 const BOT_UA_REGEX =
   /(bot|crawler|spider|slurp|bingpreview|headless|ahrefs|semrush|petalbot|bytespider|yandex)/i;
@@ -68,7 +79,7 @@ export async function updateKvsKey(kvsArn: string, key: string, value: string): 
 
 export async function getInstanceState(
   instanceId: string
-): Promise<{ state: string; publicHostname?: string }> {
+): Promise<{ state: string; publicHostname?: string; launchTime?: Date }> {
   if (!instanceId) return { state: 'unknown' };
   try {
     const res = await ec2.send(
@@ -78,6 +89,7 @@ export async function getInstanceState(
     );
     const inst = res.Reservations?.[0]?.Instances?.[0];
     const state = inst?.State?.Name || 'unknown';
+    const launchTime = inst?.LaunchTime;
     let publicHostname = inst?.PublicDnsName || undefined;
     if (!publicHostname && inst?.PublicIpAddress) {
       const region = process.env.AWS_REGION || 'us-east-1';
@@ -87,7 +99,7 @@ export async function getInstanceState(
           ? `ec2-${dashed}.compute-1.amazonaws.com`
           : `ec2-${dashed}.${region}.compute.amazonaws.com`;
     }
-    return { state, publicHostname };
+    return { state, publicHostname, launchTime };
   } catch (err) {
     console.error(`Failed to describe instance ${instanceId}:`, err);
     return { state: 'unknown' };
@@ -95,12 +107,28 @@ export async function getInstanceState(
 }
 
 export async function startInstanceIfNeeded(instanceId: string): Promise<string> {
-  const { state } = await getInstanceState(instanceId);
+  const { state, launchTime } = await getInstanceState(instanceId);
   if (state === 'stopped') {
     console.log(`Starting stopped instance ${instanceId}...`);
     await ec2.send(new StartInstancesCommand({ InstanceIds: [instanceId] }));
     await updateKvsKey(KVS_ARN, 'status', 'starting');
     return 'starting';
+  }
+  if (state === 'running' && launchTime) {
+    const now = Date.now();
+    const uptimeMs = now - new Date(launchTime).getTime();
+    if (uptimeMs > STUCK_BOOT_THRESHOLD_MS && now - lastRebootAttemptMs > STUCK_BOOT_THRESHOLD_MS) {
+      const kvsStatus = await getKvsStatus(KVS_ARN);
+      if (kvsStatus !== 'running') {
+        console.log(
+          `Instance ${instanceId} running for ${Math.round(uptimeMs / 1000)}s with kvsStatus=${kvsStatus}. Rebooting to trigger boot-sync...`
+        );
+        lastRebootAttemptMs = now;
+        await ec2.send(new RebootInstancesCommand({ InstanceIds: [instanceId] }));
+        await updateKvsKey(KVS_ARN, 'status', 'starting');
+        return 'starting';
+      }
+    }
   }
   return state;
 }

@@ -148,7 +148,7 @@ export class PaperlessOnDemandStack extends Stack {
         .digest('hex');
 
     // 4. Deploy runtime scripts and docker configuration to S3
-    new BucketDeployment(this, 'DeployRuntimeScripts', {
+    const runtimeDeployment = new BucketDeployment(this, 'DeployRuntimeScripts', {
       sources: [Source.asset(path.resolve(__dirname, '../runtime'))],
       destinationBucket: this.mediaBucket,
       destinationKeyPrefix: 'runtime',
@@ -173,6 +173,7 @@ export class PaperlessOnDemandStack extends Stack {
       adminEmail: props.adminEmail,
       domainName: props.domainName,
     });
+    this.compute.node.addDependency(runtimeDeployment);
 
     // 6. Wake-Up & Lifecycle Orchestrator Lambda
     this.orchestrator = new WakeupOrchestrator(this, 'Orchestrator', {

@@ -135,6 +135,7 @@ describe('ComputeInstance Construct', () => {
     expect(userData).toContain(
       'systemctl enable paperless-boot.service paperless-watchdog.service'
     );
+    expect(userData).toContain('systemctl start paperless-boot.service paperless-watchdog.service');
   });
 
   it('supports custom props: custom prefix list, custom domain name with domain split, and custom credentials', () => {

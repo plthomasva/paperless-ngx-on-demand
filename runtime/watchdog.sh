@@ -34,6 +34,7 @@ idle_passes=0
 
 # Ensure access log exists initially without modifying timestamp if already present
 [[ -f "$ACCESS_LOG" ]] || touch "$ACCESS_LOG"
+chmod 666 "$ACCESS_LOG" 2>/dev/null || true
 
 log() {
   echo "[watchdog $(date -u +'%Y-%m-%d %H:%M:%SZ')] $*"
@@ -61,7 +62,7 @@ pull_s3_inbox() {
     # Check if there are any non-zero byte files under s3://${INBOX_BUCKET}/consume/
     # (ignores 0-byte directory markers created by S3 console or tools)
     local s3_count
-    s3_count=$(aws s3 ls "s3://${INBOX_BUCKET}/consume/" --region "$AWS_REGION" 2>/dev/null | awk '$3 > 0 {print $4}' | wc -l || echo 0)
+    s3_count=$({ aws s3 ls "s3://${INBOX_BUCKET}/consume/" --region "$AWS_REGION" 2>/dev/null | awk '$3 > 0 {print $4}' || true; } | wc -l)
     s3_count=$(echo "$s3_count" | tr -dc '0-9')
     s3_count=${s3_count:-0}
     if [[ "$s3_count" -gt 0 ]]; then
@@ -107,8 +108,8 @@ is_system_busy() {
 
   # 5. Check Paperless API tasks
   local active_tasks
-  active_tasks=$(curl -sf -m 5 "http://127.0.0.1:8080/api/tasks/" 2>/dev/null \
-    | grep -oE '"status":\s*"(PENDING|STARTED|RETRY)"' | wc -l || echo 0)
+  active_tasks=$({ curl -sf -m 5 "http://127.0.0.1:8080/api/tasks/" 2>/dev/null \
+    | grep -oE '"status":\s*"(PENDING|STARTED|RETRY)"' || true; } | wc -l)
   active_tasks=$(echo "$active_tasks" | tr -dc '0-9')
   active_tasks=${active_tasks:-0}
   if [[ "$active_tasks" -gt 0 ]]; then

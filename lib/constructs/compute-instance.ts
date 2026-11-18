@@ -163,7 +163,8 @@ export class ComputeInstance extends Construct {
       'EOF',
       '',
       'systemctl daemon-reload',
-      'systemctl enable paperless-boot.service paperless-watchdog.service'
+      'systemctl enable paperless-boot.service paperless-watchdog.service',
+      'systemctl start paperless-boot.service paperless-watchdog.service'
     );
 
     // 4. EC2 Instance: t4g.medium (Graviton ARM64) with 10 GB gp3 root disk
