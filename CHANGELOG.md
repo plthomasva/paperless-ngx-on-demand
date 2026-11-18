@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.2...paperless-ngx-on-demand-v1.2.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **runtime:** resolve startup wake-up failures and CloudFront origin IP routing ([#29](https://github.com/plthomasva/paperless-ngx-on-demand/issues/29)) ([ffbf3dc](https://github.com/plthomasva/paperless-ngx-on-demand/commit/ffbf3dcce691a908072ae52f053196f805189b9e))
+
 ## [1.2.2](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.1...paperless-ngx-on-demand-v1.2.2) (2026-11-18)
 
 
