@@ -52,7 +52,7 @@ fi
 # 3. Export portable JSON metadata dump from Paperless container
 echo "[backup] Exporting metadata dump (manifest.json)..."
 if docker compose -f /opt/paperless/runtime/docker-compose.yml ps webserver | grep -q "Up"; then
-  docker compose -f /opt/paperless/runtime/docker-compose.yml exec -T webserver \
+  docker compose -f /opt/paperless/runtime/docker-compose.yml exec -T -u 1000:1000 -w /usr/src/paperless/src webserver \
     python3 manage.py dumpdata --exclude contenttypes --exclude auth.Permission --indent 2 \
     > "$BACKUP_TMP_DIR/data/manifest.json" 2>/dev/null || echo "[backup] Note: dumpdata non-critical warning."
 fi

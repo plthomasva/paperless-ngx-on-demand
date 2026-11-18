@@ -152,9 +152,9 @@ fi
 if [[ "$PENDING_LOADDATA" == "true" ]]; then
   log "Initial import: loading data.json into SQLite via loaddata..."
   cp -f /tmp/data.json /mnt/export/data.json
-  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py loaddata --ignorenonexistent /usr/src/paperless/export/data.json || log "Warning: loaddata non-zero exit."
+  docker compose -f "$COMPOSE_FILE" exec -T -u 1000:1000 -w /usr/src/paperless/src webserver python3 manage.py loaddata --ignorenonexistent /usr/src/paperless/export/data.json || log "Warning: loaddata non-zero exit."
   log "Rebuilding search index for imported documents..."
-  docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_index reindex || log "Warning: document_index reindex non-zero exit."
+  docker compose -f "$COMPOSE_FILE" exec -T webserver document_index reindex || log "Warning: document_index reindex non-zero exit."
   rm -f /tmp/data.json /mnt/export/data.json
   log "Initial database import complete! Creating first SQLite backup in S3..."
   /opt/paperless/runtime/backup-data.sh || log "Warning: Initial backup non-zero exit."
@@ -162,11 +162,11 @@ fi
 
 # 8. Check and generate any missing document thumbnails in the background
 log "Generating any missing document thumbnails in background..."
-docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py document_thumbnails >/tmp/thumbnails.log 2>&1 &
+docker compose -f "$COMPOSE_FILE" exec -T webserver document_thumbnails >/tmp/thumbnails.log 2>&1 &
 
 # 9. Trigger immediate mail check so emails sent while sleeping are consumed on wake
 log "Triggering initial mail check for inbound documents..."
-docker compose -f "$COMPOSE_FILE" exec -T webserver python3 manage.py mail_fetcher >/tmp/mail_fetcher.log 2>&1 &
+docker compose -f "$COMPOSE_FILE" exec -T webserver mail_fetcher >/tmp/mail_fetcher.log 2>&1 &
 
 # 10. Retrieve IMDSv2 token and instance public DNS hostname
 imds_token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || echo "")
