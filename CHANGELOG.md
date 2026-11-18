@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.1...paperless-ngx-on-demand-v1.2.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **runtime:** use CLI wrappers and correct permissions for background jobs ([#27](https://github.com/plthomasva/paperless-ngx-on-demand/issues/27)) ([77eb000](https://github.com/plthomasva/paperless-ngx-on-demand/commit/77eb000e71b187ed025683e7860a6d725fa951dd))
+
 ## [1.2.1](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.0...paperless-ngx-on-demand-v1.2.1) (2026-11-07)
 
 
