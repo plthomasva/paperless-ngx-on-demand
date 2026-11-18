@@ -38,7 +38,10 @@ describe('renderWakeupPage', () => {
     expect(html).toContain('id="progress-bar"');
     expect(html).toContain('id="status-text"');
     expect(html).toContain("fetch('/__wakeup/status?t='");
-    expect(html).toContain("attempts === 1 ? '&action=wake' : ''");
+    expect(html).toContain(
+      "const needsWake = !lastState || lastState === 'stopped' || lastState === 'stopping';"
+    );
+    expect(html).toContain("const actionParam = needsWake ? '&action=wake' : '';");
     expect(html).toContain("data.state === 'running'");
     expect(html).toContain("data.state === 'starting' || data.state === 'pending'");
     expect(html).toContain("data.state === 'booting'");

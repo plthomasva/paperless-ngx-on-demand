@@ -193,7 +193,7 @@ describe('Wakeup Lambda Handler Helpers', () => {
       );
     });
 
-    it('falls back to PublicIpAddress if PublicDnsName is empty', async () => {
+    it('normalizes PublicIpAddress to canonical EC2 DNS hostname if PublicDnsName is empty', async () => {
       mockEc2Send.mockResolvedValueOnce({
         Reservations: [
           {
@@ -210,8 +210,39 @@ describe('Wakeup Lambda Handler Helpers', () => {
       const res = await getInstanceState('i-12345');
       expect(res).toEqual({
         state: 'running',
-        publicHostname: '54.210.1.2',
+        publicHostname: 'ec2-54-210-1-2.compute-1.amazonaws.com',
       });
+    });
+
+    it('normalizes PublicIpAddress using non-default AWS_REGION if configured', async () => {
+      const origRegion = process.env.AWS_REGION;
+      process.env.AWS_REGION = 'eu-west-1';
+      try {
+        mockEc2Send.mockResolvedValueOnce({
+          Reservations: [
+            {
+              Instances: [
+                {
+                  State: { Name: 'running' },
+                  PublicDnsName: '',
+                  PublicIpAddress: '54.210.1.2',
+                },
+              ],
+            },
+          ],
+        });
+        const res = await getInstanceState('i-12345');
+        expect(res).toEqual({
+          state: 'running',
+          publicHostname: 'ec2-54-210-1-2.eu-west-1.compute.amazonaws.com',
+        });
+      } finally {
+        if (origRegion !== undefined) {
+          process.env.AWS_REGION = origRegion;
+        } else {
+          delete process.env.AWS_REGION;
+        }
+      }
     });
 
     it('returns undefined publicHostname if neither dns nor ip is present', async () => {
@@ -526,7 +557,7 @@ describe('Wakeup Lambda Handler Event Routing', () => {
       const body = JSON.parse(res.body);
       expect(body.state).toBe('starting');
       expect(body.ec2State).toBe('pending');
-      expect(body.publicHostname).toBe('54.1.2.3');
+      expect(body.publicHostname).toBe('ec2-54-1-2-3.compute-1.amazonaws.com');
     });
 
     it('responds with effectiveState stopped when ec2 is stopped and kvs is stopped', async () => {

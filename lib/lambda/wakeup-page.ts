@@ -123,6 +123,7 @@ export function renderWakeupPage(requestedPath: string): string {
       const progressBar = document.getElementById('progress-bar');
       const startTime = Date.now();
       let attempts = 0;
+      let lastState = '';
 
       function updateProgress() {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -138,10 +139,12 @@ export function renderWakeupPage(requestedPath: string): string {
       async function checkStatus() {
         attempts++;
         try {
-          const actionParam = attempts === 1 ? '&action=wake' : '';
+          const needsWake = !lastState || lastState === 'stopped' || lastState === 'stopping';
+          const actionParam = needsWake ? '&action=wake' : '';
           const res = await fetch('/__wakeup/status?t=' + Date.now() + actionParam);
           if (res.ok) {
             const data = await res.json();
+            lastState = data.state || '';
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             if (data.state === 'running') {
               clearInterval(timerInterval);
