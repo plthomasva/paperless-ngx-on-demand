@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.3...paperless-ngx-on-demand-v1.2.4) (2026-11-18)
+
+
+### Bug Fixes
+
+* **compute:** start systemd boot and watchdog services on initial EC2 boot and self-heal stuck instances ([#31](https://github.com/plthomasva/paperless-ngx-on-demand/issues/31)) ([1aaaf02](https://github.com/plthomasva/paperless-ngx-on-demand/commit/1aaaf02e2aede8f7a145f8ec0c47f72d4f51a2f3))
+
 ## [1.2.3](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.2...paperless-ngx-on-demand-v1.2.3) (2026-11-18)
 
 
