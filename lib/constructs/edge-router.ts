@@ -60,8 +60,14 @@ async function handler(event) {
     var originDomain = await kvs.get('originDomain');
 
     if (status === 'running' && originDomain && originDomain.length > 0) {
+      var targetDomain = originDomain;
+      // CloudFront Functions cf.updateRequestOrigin forbids raw IP addresses and colons.
+      // If originDomain is an IPv4 address, convert to canonical EC2 DNS hostname.
+      if (/^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$/.test(targetDomain)) {
+        targetDomain = 'ec2-' + targetDomain.split('.').join('-') + '.compute-1.amazonaws.com';
+      }
       cf.updateRequestOrigin({
-        domainName: originDomain,
+        domainName: targetDomain,
         customOriginConfig: {
           port: 8000,
           protocol: 'http',

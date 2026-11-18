@@ -71,7 +71,7 @@ if [[ -n "$MEDIA_BUCKET" ]]; then
   else
     log "Preparing clean mountpoint for /mnt/paperless-media..."
     fusermount -u -z /mnt/paperless-media 2>/dev/null || umount -l /mnt/paperless-media 2>/dev/null || true
-    rm -rf /mnt/paperless-media
+    rm -rf /mnt/paperless-media 2>/dev/null || true
     mkdir -p /mnt/paperless-media
     chown 1000:1000 /mnt/paperless-media
     chmod 755 /mnt/paperless-media
@@ -81,12 +81,22 @@ if [[ -n "$MEDIA_BUCKET" ]]; then
       prefix_opt="--prefix ${MEDIA_SUBPATH%/}/"
     fi
     log "Mounting S3 bucket '$MEDIA_BUCKET' at /mnt/paperless-media via mount-s3 ($prefix_opt)..."
-    mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --allow-overwrite --allow-delete --auto-unmount
-    sleep 1
-    if mountpoint -q /mnt/paperless-media; then
+    mounted=false
+    for attempt in 1 2 3; do
+      mount-s3 "$MEDIA_BUCKET" /mnt/paperless-media $prefix_opt --allow-other --uid 1000 --gid 1000 --allow-overwrite --allow-delete --auto-unmount || true
+      sleep 1
+      if mountpoint -q /mnt/paperless-media; then
+        mounted=true
+        break
+      fi
+      log "mount-s3 attempt $attempt failed, retrying in 2 seconds..."
+      sleep 2
+    done
+
+    if [[ "$mounted" == "true" ]]; then
       log "mount-s3 mount successful and verified on /mnt/paperless-media."
     else
-      log "Error: Failed to mount /mnt/paperless-media via mount-s3."
+      log "Error: Failed to mount /mnt/paperless-media via mount-s3 after 3 attempts."
       exit 1
     fi
   fi
@@ -169,23 +179,48 @@ log "Triggering initial mail check for inbound documents..."
 docker compose -f "$COMPOSE_FILE" exec -T webserver mail_fetcher >/tmp/mail_fetcher.log 2>&1 &
 
 # 10. Retrieve IMDSv2 token and instance public DNS hostname
-imds_token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || echo "")
+imds_token=$(curl -sf -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null || echo "")
 public_hostname=""
 if [[ -n "$imds_token" ]]; then
-  public_hostname=$(curl -s -H "X-aws-ec2-metadata-token: $imds_token" "http://169.254.169.254/latest/meta-data/public-hostname" 2>/dev/null || echo "")
+  public_hostname=$(curl -sf -m 2 -H "X-aws-ec2-metadata-token: $imds_token" "http://169.254.169.254/latest/meta-data/public-hostname" 2>/dev/null || echo "")
 fi
 
-if [[ -z "$public_hostname" ]]; then
-  # Fallback to public IPv4 if hostname is empty
-  public_hostname=$(curl -s -H "X-aws-ec2-metadata-token: $imds_token" "http://169.254.169.254/latest/meta-data/public-ipv4" 2>/dev/null || echo "")
+# Clear if metadata service returned 404 HTML body or error
+if [[ "$public_hostname" == *"<"* ]] || [[ "$public_hostname" == *"404"* ]]; then
+  public_hostname=""
+fi
+
+if [[ -z "$public_hostname" ]] && [[ -n "$imds_token" ]]; then
+  # Fallback to public IPv4 and convert to canonical EC2 DNS hostname
+  public_ipv4=$(curl -sf -m 2 -H "X-aws-ec2-metadata-token: $imds_token" "http://169.254.169.254/latest/meta-data/public-ipv4" 2>/dev/null || echo "")
+  if [[ "$public_ipv4" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    dashed_ip="${public_ipv4//./-}"
+    if [[ "$AWS_REGION" == "us-east-1" ]]; then
+      public_hostname="ec2-${dashed_ip}.compute-1.amazonaws.com"
+    else
+      public_hostname="ec2-${dashed_ip}.${AWS_REGION}.compute.amazonaws.com"
+    fi
+  fi
+fi
+
+# Ensure that if public_hostname is a raw IPv4 address, it is converted to canonical EC2 DNS format
+# (CloudFront Functions cf.updateRequestOrigin strictly forbids raw IP addresses)
+if [[ "$public_hostname" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+  dashed_ip="${public_hostname//./-}"
+  if [[ "$AWS_REGION" == "us-east-1" ]]; then
+    public_hostname="ec2-${dashed_ip}.compute-1.amazonaws.com"
+  else
+    public_hostname="ec2-${dashed_ip}.${AWS_REGION}.compute.amazonaws.com"
+  fi
 fi
 
 log "Detected instance public address: $public_hostname"
 
-# 9. Update CloudFront KeyValueStore with status='running' and originDomain
+# 11. Update CloudFront KeyValueStore with status='running' and originDomain
+# CloudFront KeyValueStore data plane operations MUST use --region us-east-1
 if [[ -n "$KVS_NAME" ]] && [[ -n "$public_hostname" ]]; then
   log "Updating CloudFront KeyValueStore ($KVS_NAME)..."
-  etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region "$AWS_REGION" --query "ETag" --output text 2>/dev/null || echo "")
+  etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region us-east-1 --query "ETag" --output text 2>/dev/null || echo "")
   if [[ -n "$etag" ]]; then
     # Update originDomain
     aws cloudfront-keyvaluestore put-key \
@@ -193,17 +228,17 @@ if [[ -n "$KVS_NAME" ]] && [[ -n "$public_hostname" ]]; then
       --key "originDomain" \
       --value "$public_hostname" \
       --if-match "$etag" \
-      --region "$AWS_REGION" >/dev/null 2>&1 || log "Warning: Failed to put originDomain key."
+      --region us-east-1 >/dev/null 2>&1 || log "Warning: Failed to put originDomain key."
 
     # Fetch updated etag for next put
-    etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region "$AWS_REGION" --query "ETag" --output text 2>/dev/null || echo "")
+    etag=$(aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region us-east-1 --query "ETag" --output text 2>/dev/null || echo "")
     if [[ -n "$etag" ]]; then
       aws cloudfront-keyvaluestore put-key \
         --kvs-arn "$KVS_NAME" \
         --key "status" \
         --value "running" \
         --if-match "$etag" \
-        --region "$AWS_REGION" >/dev/null 2>&1 || log "Warning: Failed to put status key."
+        --region us-east-1 >/dev/null 2>&1 || log "Warning: Failed to put status key."
     fi
     log "CloudFront KeyValueStore successfully updated with status=running and originDomain=$public_hostname."
   fi

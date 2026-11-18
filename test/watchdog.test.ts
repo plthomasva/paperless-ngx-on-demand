@@ -33,6 +33,9 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     expect(content).toContain('update_kvs_status "stopped"');
     expect(content).toContain('backup-data.sh');
     expect(content).toContain('shutdown -h now');
+    expect(content).toContain(
+      'aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region us-east-1'
+    );
   });
 
   it('contains backup-data.sh with transactional sqlite3 online backup and metadata export', () => {
@@ -67,6 +70,12 @@ describe('Watchdog and Runtime Scripts Validation', () => {
     expect(content).toContain('paperless-data-latest.tar.gz');
     expect(content).toContain('cloudfront-keyvaluestore');
     expect(content).toContain('originDomain');
+    expect(content).toContain(
+      'aws cloudfront-keyvaluestore describe-key-value-store --kvs-arn "$KVS_NAME" --region us-east-1'
+    );
+    expect(content).toContain('ec2-${dashed_ip}.compute-1.amazonaws.com');
+    expect(content).toContain('rm -rf /mnt/paperless-media 2>/dev/null || true');
+    expect(content).toContain('for attempt in 1 2 3');
     expect(content).toContain(
       '-u 1000:1000 -w /usr/src/paperless/src webserver python3 manage.py loaddata'
     );
