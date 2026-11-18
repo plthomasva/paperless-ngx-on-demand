@@ -246,5 +246,6 @@ fi
 
 # Touch access log to mark boot time as last activity
 touch /tmp/access.log
+chmod 666 /tmp/access.log 2>/dev/null || true
 
 log "Paperless-NGX boot-sync finished successfully."

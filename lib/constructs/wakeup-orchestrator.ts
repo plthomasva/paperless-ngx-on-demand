@@ -60,7 +60,7 @@ export class WakeupOrchestrator extends Construct {
 
     this.wakeupFunction.addToRolePolicy(
       new PolicyStatement({
-        actions: ['ec2:StartInstances'],
+        actions: ['ec2:StartInstances', 'ec2:RebootInstances'],
         resources: [`arn:aws:ec2:*:*:instance/${props.instance.instanceId}`],
       })
     );

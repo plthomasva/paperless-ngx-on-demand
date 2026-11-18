@@ -67,7 +67,7 @@ describe('WakeupOrchestrator Construct', () => {
             Resource: '*',
           }),
           Match.objectLike({
-            Action: 'ec2:StartInstances',
+            Action: ['ec2:StartInstances', 'ec2:RebootInstances'],
             Effect: 'Allow',
             Resource: {
               'Fn::Join': [
