@@ -93,6 +93,24 @@ export function renderWakeupPage(requestedPath: string): string {
       font-weight: 500;
       min-height: 1.25rem;
     }
+    .retry-btn {
+      margin-top: 1.25rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--bg);
+      background: var(--primary);
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .retry-btn:hover {
+      background: var(--accent);
+    }
+    .retry-btn[hidden] {
+      display: none;
+    }
     @keyframes pulse {
       0%, 100% { transform: scale(1); opacity: 0.9; }
       50% { transform: scale(1.08); opacity: 1; }
@@ -115,18 +133,53 @@ export function renderWakeupPage(requestedPath: string): string {
       <div class="progress-bar" id="progress-bar"></div>
     </div>
     <div class="status-text" id="status-text">Starting server instance...</div>
+    <button class="retry-btn" id="retry-btn" type="button" hidden>Check again</button>
   </div>
 
   <script>
     (function() {
+      const POLL_INTERVAL_MS = 5000;
+      const MAX_POLL_DURATION_MS = 15 * 60 * 1000;
       const statusText = document.getElementById('status-text');
       const progressBar = document.getElementById('progress-bar');
-      const startTime = Date.now();
+      const retryBtn = document.getElementById('retry-btn');
+      let startTime = Date.now();
       let attempts = 0;
       let lastState = '';
+      let stoppedPolling = false;
+      let pollTimeout = null;
+      let pollInFlight = false;
+
+      function clearPollTimeout() {
+        if (pollTimeout !== null) {
+          clearTimeout(pollTimeout);
+          pollTimeout = null;
+        }
+      }
+
+      function giveUp() {
+        stoppedPolling = true;
+        clearPollTimeout();
+        if (timerInterval !== null) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        if (statusText) {
+          statusText.textContent = 'Taking longer than usual to wake up. Click below to check again.';
+        }
+        if (retryBtn) {
+          retryBtn.hidden = false;
+        }
+      }
 
       function updateProgress() {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        if (stoppedPolling) return;
+        const elapsedMs = Date.now() - startTime;
+        if (elapsedMs >= MAX_POLL_DURATION_MS) {
+          giveUp();
+          return;
+        }
+        const elapsed = Math.floor(elapsedMs / 1000);
         // Estimate progress toward ~55s target, capping at 92% until running
         const pct = Math.min(92, Math.max(5, Math.floor((elapsed / 55) * 100)));
         if (progressBar && !progressBar.classList.contains('ready')) {
@@ -134,9 +187,21 @@ export function renderWakeupPage(requestedPath: string): string {
         }
       }
 
-      const timerInterval = setInterval(updateProgress, 1000);
+      let timerInterval = setInterval(updateProgress, 1000);
 
       async function checkStatus() {
+        clearPollTimeout();
+        if (stoppedPolling || pollInFlight) return;
+        if (Date.now() - startTime >= MAX_POLL_DURATION_MS) {
+          giveUp();
+          return;
+        }
+        // Pause polling while tab is hidden in the background; visibilitychange will resume
+        if (document.hidden) {
+          return;
+        }
+
+        pollInFlight = true;
         attempts++;
         try {
           const needsWake = !lastState || lastState === 'stopped' || lastState === 'stopping';
@@ -147,7 +212,11 @@ export function renderWakeupPage(requestedPath: string): string {
             lastState = data.state || '';
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             if (data.state === 'running') {
-              clearInterval(timerInterval);
+              stoppedPolling = true;
+              if (timerInterval !== null) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+              }
               if (progressBar) {
                 progressBar.classList.add('ready');
                 progressBar.style.width = '100%';
@@ -167,12 +236,56 @@ export function renderWakeupPage(requestedPath: string): string {
           }
         } catch (e) {
           // Ignore transient network errors while server boots
+        } finally {
+          pollInFlight = false;
         }
-        setTimeout(checkStatus, 2000);
+
+        if (!stoppedPolling && !document.hidden) {
+          if (Date.now() - startTime >= MAX_POLL_DURATION_MS) {
+            giveUp();
+          } else {
+            pollTimeout = setTimeout(checkStatus, POLL_INTERVAL_MS);
+          }
+        }
+      }
+
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          clearPollTimeout();
+        } else if (!stoppedPolling) {
+          if (Date.now() - startTime >= MAX_POLL_DURATION_MS) {
+            giveUp();
+          } else if (!pollInFlight) {
+            clearPollTimeout();
+            pollTimeout = setTimeout(checkStatus, 100);
+          }
+        }
+      });
+
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function() {
+          retryBtn.hidden = true;
+          startTime = Date.now();
+          attempts = 0;
+          lastState = '';
+          stoppedPolling = false;
+          if (progressBar) {
+            progressBar.classList.remove('ready');
+            progressBar.style.width = '5%';
+          }
+          if (statusText) {
+            statusText.textContent = 'Starting server instance...';
+          }
+          if (timerInterval !== null) {
+            clearInterval(timerInterval);
+          }
+          timerInterval = setInterval(updateProgress, 1000);
+          checkStatus();
+        });
       }
 
       // Immediately trigger wakeup via JS and start polling
-      setTimeout(checkStatus, 100);
+      pollTimeout = setTimeout(checkStatus, 100);
     })();
   </script>
 </body>
