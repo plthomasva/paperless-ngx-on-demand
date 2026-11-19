@@ -425,11 +425,88 @@ describe('Wakeup Lambda Handler Helpers', () => {
       expect(mockKvsSend).not.toHaveBeenCalled();
     });
   });
+
+  describe('15-second status caching', () => {
+    it('caches getKvsStatus result within 15s TTL and refreshes after expiration', async () => {
+      mockKvsSend.mockResolvedValueOnce({ Value: 'starting' });
+      const first = await getKvsStatus('arn:aws:kvs:test');
+      const second = await getKvsStatus('arn:aws:kvs:test');
+      expect(first).toBe('starting');
+      expect(second).toBe('starting');
+      expect(mockKvsSend).toHaveBeenCalledTimes(1);
+
+      // Advance time past 15s TTL
+      const realNow = Date.now();
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(realNow + 16_000);
+      try {
+        mockKvsSend.mockResolvedValueOnce({ Value: 'running' });
+        const third = await getKvsStatus('arn:aws:kvs:test');
+        expect(third).toBe('running');
+        expect(mockKvsSend).toHaveBeenCalledTimes(2);
+      } finally {
+        nowSpy.mockRestore();
+      }
+    });
+
+    it('updates kvsStatusCache immediately when updateKvsKey writes status key', async () => {
+      mockKvsSend.mockResolvedValueOnce({ ETag: 'ET1' });
+      mockKvsSend.mockResolvedValueOnce({});
+      await updateKvsKey('arn:aws:kvs:test', 'status', 'starting');
+
+      const cached = await getKvsStatus('arn:aws:kvs:test');
+      expect(cached).toBe('starting');
+      // Only DescribeKeyValueStore + PutKey from updateKvsKey; zero GetKey calls
+      expect(mockKvsSend).toHaveBeenCalledTimes(2);
+    });
+
+    it('caches getInstanceState result within 15s TTL and refreshes after expiration', async () => {
+      mockEc2Send.mockResolvedValueOnce({
+        Reservations: [
+          {
+            Instances: [
+              {
+                State: { Name: 'running' },
+                PublicDnsName: 'ec2-cached.compute-1.amazonaws.com',
+              },
+            ],
+          },
+        ],
+      });
+
+      const first = await getInstanceState('i-12345');
+      const second = await getInstanceState('i-12345');
+      expect(first.state).toBe('running');
+      expect(second.publicHostname).toBe('ec2-cached.compute-1.amazonaws.com');
+      expect(mockEc2Send).toHaveBeenCalledTimes(1);
+
+      const realNow = Date.now();
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(realNow + 16_000);
+      try {
+        mockEc2Send.mockResolvedValueOnce({
+          Reservations: [
+            {
+              Instances: [
+                {
+                  State: { Name: 'stopped' },
+                },
+              ],
+            },
+          ],
+        });
+        const third = await getInstanceState('i-12345');
+        expect(third.state).toBe('stopped');
+        expect(mockEc2Send).toHaveBeenCalledTimes(2);
+      } finally {
+        nowSpy.mockRestore();
+      }
+    });
+  });
 });
 
 describe('Wakeup Lambda Handler Event Routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRebootCooldown();
     process.env.INSTANCE_ID = 'i-1234567890abcdef0';
     process.env.KVS_ARN = 'arn:aws:cloudfront::123456789012:key-value-store/test-kvs';
   });

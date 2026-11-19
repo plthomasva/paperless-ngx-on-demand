@@ -20,10 +20,20 @@ const kvs = new CloudFrontKeyValueStoreClient({ region: 'us-east-1' });
 const INSTANCE_ID = process.env.INSTANCE_ID || '';
 const KVS_ARN = process.env.KVS_ARN || '';
 const STUCK_BOOT_THRESHOLD_MS = 5 * 60 * 1000;
+const STATUS_CACHE_TTL_MS = 15 * 1000;
+
 let lastRebootAttemptMs = 0;
+let kvsStatusCache: { kvsArn: string; value: string; expiresAt: number } | null = null;
+let instanceStateCache: {
+  instanceId: string;
+  data: { state: string; publicHostname?: string; launchTime?: Date };
+  expiresAt: number;
+} | null = null;
 
 export function resetRebootCooldown(): void {
   lastRebootAttemptMs = 0;
+  kvsStatusCache = null;
+  instanceStateCache = null;
 }
 
 const BOT_UA_REGEX =
@@ -48,9 +58,19 @@ interface LambdaResponse {
 
 export async function getKvsStatus(kvsArn: string): Promise<string> {
   if (!kvsArn) return 'unknown';
+  const now = Date.now();
+  if (kvsStatusCache && kvsStatusCache.kvsArn === kvsArn && now < kvsStatusCache.expiresAt) {
+    return kvsStatusCache.value;
+  }
   try {
     const res = await kvs.send(new GetKeyCommand({ KvsARN: kvsArn, Key: 'status' }));
-    return res.Value || 'unknown';
+    const value = res.Value || 'unknown';
+    kvsStatusCache = {
+      kvsArn,
+      value,
+      expiresAt: Date.now() + STATUS_CACHE_TTL_MS,
+    };
+    return value;
   } catch (err) {
     console.error('getKvsStatus failed to get status key:', err);
     return 'stopped';
@@ -59,6 +79,9 @@ export async function getKvsStatus(kvsArn: string): Promise<string> {
 
 export async function updateKvsKey(kvsArn: string, key: string, value: string): Promise<void> {
   if (!kvsArn) return;
+  if (key === 'status') {
+    kvsStatusCache = null;
+  }
   try {
     const desc = await kvs.send(new DescribeKeyValueStoreCommand({ KvsARN: kvsArn }));
     const etag = desc.ETag;
@@ -71,6 +94,13 @@ export async function updateKvsKey(kvsArn: string, key: string, value: string): 
           IfMatch: etag,
         })
       );
+      if (key === 'status') {
+        kvsStatusCache = {
+          kvsArn,
+          value,
+          expiresAt: Date.now() + STATUS_CACHE_TTL_MS,
+        };
+      }
     }
   } catch (err) {
     console.error(`Failed to update KVS key ${key} to ${value}:`, err);
@@ -81,6 +111,14 @@ export async function getInstanceState(
   instanceId: string
 ): Promise<{ state: string; publicHostname?: string; launchTime?: Date }> {
   if (!instanceId) return { state: 'unknown' };
+  const now = Date.now();
+  if (
+    instanceStateCache &&
+    instanceStateCache.instanceId === instanceId &&
+    now < instanceStateCache.expiresAt
+  ) {
+    return instanceStateCache.data;
+  }
   try {
     const res = await ec2.send(
       new DescribeInstancesCommand({
@@ -99,7 +137,13 @@ export async function getInstanceState(
           ? `ec2-${dashed}.compute-1.amazonaws.com`
           : `ec2-${dashed}.${region}.compute.amazonaws.com`;
     }
-    return { state, publicHostname, launchTime };
+    const data = { state, publicHostname, launchTime };
+    instanceStateCache = {
+      instanceId,
+      data,
+      expiresAt: Date.now() + STATUS_CACHE_TTL_MS,
+    };
+    return data;
   } catch (err) {
     console.error(`Failed to describe instance ${instanceId}:`, err);
     return { state: 'unknown' };
@@ -111,6 +155,7 @@ export async function startInstanceIfNeeded(instanceId: string): Promise<string>
   if (state === 'stopped') {
     console.log(`Starting stopped instance ${instanceId}...`);
     await ec2.send(new StartInstancesCommand({ InstanceIds: [instanceId] }));
+    instanceStateCache = null;
     await updateKvsKey(KVS_ARN, 'status', 'starting');
     return 'starting';
   }
@@ -125,6 +170,7 @@ export async function startInstanceIfNeeded(instanceId: string): Promise<string>
         );
         lastRebootAttemptMs = now;
         await ec2.send(new RebootInstancesCommand({ InstanceIds: [instanceId] }));
+        instanceStateCache = null;
         await updateKvsKey(KVS_ARN, 'status', 'starting');
         return 'starting';
       }
