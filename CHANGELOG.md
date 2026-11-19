@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.5](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.4...paperless-ngx-on-demand-v1.2.5) (2026-11-19)
+
+
+### Bug Fixes
+
+* **wakeup:** cap splash page polling, pause when hidden, and cache KVS status (fixes [#33](https://github.com/plthomasva/paperless-ngx-on-demand/issues/33)) ([#34](https://github.com/plthomasva/paperless-ngx-on-demand/issues/34)) ([731cb58](https://github.com/plthomasva/paperless-ngx-on-demand/commit/731cb58a53b5b4c82976995d3b1d3f4af3b9e210))
+
 ## [1.2.4](https://github.com/plthomasva/paperless-ngx-on-demand/compare/paperless-ngx-on-demand-v1.2.3...paperless-ngx-on-demand-v1.2.4) (2026-11-18)
 
 
