@@ -11,6 +11,10 @@ An Infrastructure-as-Code (AWS CDK in TypeScript) deployment of [Paperless-NGX](
 
 The server sleeps when idle ($0/hr compute) and **wakes up automatically on demand** when you visit the web UI or drop documents into an S3 inbox bucket. When your session ends and all background indexing/OCR tasks have completed, it automatically backs up the database to S3 and returns to sleep.
 
+![Paperless-NGX On-Demand Cold Start Demo](assets/demo.gif)
+
+_Cold start UX: hit URL -> ~50ms dark-mode splash screen -> automatic cutover into Paperless-NGX._
+
 ---
 
 ## Architecture
